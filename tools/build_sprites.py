@@ -35,7 +35,7 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки)
 SHEETS = {
     # дыхание 0–5, моргание 6–11, чешет жопу 12–23
-    "idle": ("idle.png", 6, 4, 0, {"register": True, "blink": {"phases": 6, "closed": 9}}),
+    "idle": ("idle.png", 6, 4, 0, {"register": True, "blink": {"phases": 6, "closed": 8}}),
     "hungry": ("hungry.png", 4, 4, 0),
     "walk": ("walk.png", 6, 4, 0),
     "poop": ("poop.png", 4, 4, 0),
