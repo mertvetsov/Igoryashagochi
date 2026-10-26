@@ -1,5 +1,6 @@
 'use strict';
-const { CELL, sheets, animations, play, lighting, timeOfDay } = window.IGORYASHA;
+const { CELL, sheets, animations, play, lighting, timeOfDay, commonPhrases } = window.IGORYASHA;
+const COMMON_SHARE = 0.35;   // доля коронных фраз среди реплик
 const $ = id => document.getElementById(id);
 const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
@@ -24,8 +25,7 @@ function setState(next, manual = false) {
   state = next;
   current = play(next);
   elapsed = 0;
-  const p = animations[next].phrases;
-  phrase = p[Math.floor(Math.random() * p.length)];
+  phrase = pickPhrase(animations[next]);
   if (manual) auto = false;
   updateUI();
   addLog(animations[next].label);
@@ -98,15 +98,49 @@ function drawGrid() {
   ctx.fillRect(0, 200, CELL, 1);
 }
 
+// Реплика своя для действия, но иногда Игоряша просто выдаёт коронное.
+function pickPhrase(a) {
+  const pool = Math.random() < COMMON_SHARE ? commonPhrases : a.phrases;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Разбивка по словам в строки, которые влезают в ширину пузыря.
+function wrap(text, width) {
+  const lines = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const next = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(next).width > width) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  return [...lines, line];
+}
+
+// Пузырь во всю ширину экрана, с хвостиком вниз к голове.
+const BUBBLE = { x: 6, y: 6, w: CELL - 12, pad: 7, line: 16, font: 'bold 14px monospace' };
 function drawSpeech() {
-  ctx.font = 'bold 9px monospace';
-  const w = Math.min(230, ctx.measureText(phrase).width + 16), x = (CELL - w) / 2;
+  const b = BUBBLE;
+  ctx.font = b.font;
+  const lines = wrap(phrase, b.w - 2 * b.pad);
+  const h = lines.length * b.line + 2 * b.pad - 2;
+  ctx.fillStyle = '#22281e';   // тёмная рамка в 1 px — читается и днём, и ночью
+  ctx.fillRect(b.x - 1, b.y - 1, b.w + 2, h + 2);
+  ctx.beginPath();
+  ctx.moveTo(112, b.y + h); ctx.lineTo(126, b.y + h); ctx.lineTo(119, b.y + h + 9);
+  ctx.fill();
   ctx.fillStyle = '#eff1dc';
-  ctx.fillRect(x, 10, w, 21);
+  ctx.fillRect(b.x, b.y, b.w, h);
+  ctx.beginPath();
+  ctx.moveTo(113, b.y + h - 1); ctx.lineTo(125, b.y + h - 1); ctx.lineTo(119, b.y + h + 7);
+  ctx.fill();
   ctx.fillStyle = '#22281e';
   ctx.textAlign = 'center';
-  ctx.fillText(phrase, CELL / 2, 24);
+  ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, CELL / 2, b.y + b.pad + i * b.line));
   ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 }
 
 // Сдвиг всей картинки при ударе по стеклу. Считается от времени внутри кадра,
