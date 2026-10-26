@@ -160,7 +160,7 @@
       sheet: 'sleep',
       frames: seq(sleepSeq, sleepMs),
       // пока лежит — от головы всплывают «z» (x, y — где голова, кадры — когда)
-      zzz: { frames: sleepLoop, x: 86, y: 140 },
+      zzz: { frames: sleepLoop, x: 72, y: 124 },
       phrases: ['Чёт я устал…', 'Ой вей, спать.', 'Разбудите к хинкалу.'],
     },
     poop: {

@@ -160,9 +160,14 @@ function drawZzz(z, t) {
   for (let i = 0; i < 3; i++) {
     const k = (t / ZZZ_MS + i / 3) % 1;
     const size = 8 + Math.round(k * 6);
+    const alpha = (Math.min(1, k * 4) * (1 - k)).toFixed(2);
+    const x = z.x + k * 22 + 3 * Math.sin(k * 9 + i), y = z.y - k * 34;
     ctx.font = `bold ${size}px monospace`;
-    ctx.fillStyle = `rgba(238,242,250,${(Math.min(1, k * 4) * (1 - k)).toFixed(2)})`;
-    ctx.fillText('z', z.x + k * 22 + 3 * Math.sin(k * 9 + i), z.y - k * 34);
+    ctx.lineWidth = 3;                                  // тёмная обводка — видно и на светлых обоях
+    ctx.strokeStyle = `rgba(28,32,38,${alpha})`;
+    ctx.strokeText('z', x, y);
+    ctx.fillStyle = `rgba(238,242,250,${alpha})`;
+    ctx.fillText('z', x, y);
   }
   ctx.textAlign = 'left';
 }

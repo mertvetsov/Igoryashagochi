@@ -35,7 +35,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        per_row — резать колонки в каждом ряду отдельно, по середине широких промежутков;
 #        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки);
-#        cut_pile — вырезать кучку у ноги (лист «посрать»)
+#        cut_pile — вырезать кучку у ноги (лист «посрать»);
+#        figures — сетка неровная: резать по отдельным фигурам в каждом ряду
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -51,8 +52,9 @@ SHEETS = {
     "tanks": ("tanks.png", 6, 4, 0, {"min_blob": 0.001}),
     "tanks_win": ("tanks_win.png", 6, 4, 23, {"min_blob": 0.001}),
     "tanks_lose": ("tanks_lose.png", 6, 4, 23, {"min_blob": 0.0005}),
-    # устаёт и ложится 0–7, спит и храпит 8–15 (цикл), встаёт 16–23
-    "sleep": ("sleep.png", 6, 4, 0),
+    # устаёт и ложится 0–7, спит и храпит 8–15 (цикл), встаёт 16–23;
+    # в исходнике ряды по 6, 6, 4 и 8 кадров — режем по фигурам
+    "sleep": ("sleep.png", 6, 4, 0, {"figures": True}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
@@ -141,6 +143,30 @@ def slice_cells(img, cols, rows, per_row=False):
             xs = cut_lines(solid[band].sum(axis=0), cols, widest=True)
         for c in range(cols):
             yield img[band, xs[c]:xs[c + 1]]
+
+
+def slice_figures(img, min_area=2000, min_band=40):
+    """Нарезка листа с неровной сеткой (в рядах разное число кадров): ряды —
+    по пустым горизонтальным полосам, в ряду — по отдельным фигурам, граница
+    посередине между соседними. Кадры идут слева направо, сверху вниз."""
+    solid = img[..., 3] >= ALPHA_CUT
+    bands, start = [], None
+    for y, v in enumerate(list(solid.any(axis=1)) + [False]):
+        if v and start is None:
+            start = y
+        elif not v and start is not None:
+            if y - start > min_band:
+                bands.append((start, y))
+            start = None
+    for y0, y1 in bands:
+        labels, n = ndimage.label(solid[y0:y1], structure=np.ones((3, 3)))
+        sizes = ndimage.sum(solid[y0:y1], labels, range(1, n + 1))
+        spans = sorted((np.nonzero(labels == k + 1)[1].min(), np.nonzero(labels == k + 1)[1].max())
+                       for k in range(n) if sizes[k] >= min_area)
+        edges = [0] + [(a[1] + b[0]) // 2 for a, b in zip(spans, spans[1:])] + [img.shape[1]]
+        top, bottom = max(0, y0 - 8), min(img.shape[0], y1 + 8)
+        for x0, x1 in zip(edges, edges[1:]):
+            yield img[top:bottom, x0:x1]
 
 
 def cut_lines(profile, n, widest=False):
@@ -356,8 +382,10 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
     src = np.array(Image.open(SRC / file).convert("RGBA"))
     if opts.get("native"):
         return build_native(name, src, cols, rows, opts)
-    cells = [clean_cell(c, opts.get("min_blob", MIN_BLOB), opts.get("backdrop", False))
-             for c in slice_cells(src, cols, rows, opts.get("per_row", False))]
+    sliced = slice_figures(src) if opts.get("figures") else \
+        slice_cells(src, cols, rows, opts.get("per_row", False))
+    cells = [clean_cell(c, opts.get("min_blob", MIN_BLOB), opts.get("backdrop", False)) for c in sliced]
+    assert len(cells) == cols * rows, (name, len(cells))
     if opts.get("cut_pile"):
         cells = [(cut_pile(c), b) for c, b in cells]
     if opts.get("register"):
