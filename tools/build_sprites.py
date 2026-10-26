@@ -25,12 +25,15 @@ ANCHOR_X = 117      # центр масс тела по горизонтали
 ALPHA_CUT = 128     # всё полупрозрачное ниже — мусор после генерации
 MIN_BLOB = 0.004    # доля от площади персонажа: мельче — удаляем как шум
 
-# name: (файл, колонки, ряды, индекс эталонного стоячего кадра)
+# name: (файл, колонки, ряды, индекс эталонного стоячего кадра[, порог шума])
 SHEETS = {
     "scratch": ("scratch.png", 4, 4, 0),
     "hungry": ("hungry.png", 4, 4, 0),
     "walk": ("walk.png", 6, 4, 0),
     "poop": ("poop.png", 4, 4, 0),
+    "eat": ("eat.png", 6, 4, 0),
+    # брызги рвоты мелкие — порог ниже, чтобы их не съело
+    "sick": ("sick.png", 6, 4, 0, 0.0005),
 }
 
 
@@ -48,7 +51,13 @@ def peel_red_fringe(rgba, passes=4):
     return rgba
 
 
-def clean_cell(cell):
+def vomit_mask(rgba):
+    """Ярко-зелёное (рвота) — не тело, не участвует в центровке."""
+    r, g, b = (rgba[..., i].astype(int) for i in range(3))
+    return (g - r > 40) & (g - b > 60)
+
+
+def clean_cell(cell, min_blob=MIN_BLOB):
     cell = cell.copy()
     cell[cell[..., 3] < ALPHA_CUT, 3] = 0
     cell[cell[..., 3] > 0, 3] = 255
@@ -60,19 +69,34 @@ def clean_cell(cell):
     sizes = ndimage.sum(solid, labels, range(1, n + 1))
     body = int(np.argmax(sizes)) + 1
     keep = np.zeros(n + 1, bool)
-    keep[1:] = sizes >= sizes.max() * MIN_BLOB
+    keep[1:] = sizes >= sizes.max() * min_blob
     cell[~keep[labels], 3] = 0
     cell[cell[..., 3] == 0, :3] = 0
-    return cell, labels == body
+    return cell, (labels == body) & ~vomit_mask(cell)
 
 
 def slice_cells(img, cols, rows):
     h, w = img.shape[:2]
+    solid = img[..., 3] >= ALPHA_CUT
+    xs = cut_lines(solid.sum(axis=0), cols)
+    ys = cut_lines(solid.sum(axis=1), rows)
     for i in range(cols * rows):
         c, r = i % cols, i // cols
-        x0, x1 = round(c * w / cols), round((c + 1) * w / cols)
-        y0, y1 = round(r * h / rows), round((r + 1) * h / rows)
-        yield img[y0:y1, x0:x1]
+        yield img[ys[r]:ys[r + 1], xs[c]:xs[c + 1]]
+
+
+def cut_lines(profile, n):
+    """Границы ячеек. Генератор не всегда держит ровную сетку: если линия
+    равномерной сетки режет персонажа, сдвигаем её на ближайшую пустую."""
+    size = len(profile)
+    lines = [0]
+    for k in range(1, n):
+        nominal = round(k * size / n)
+        reach = size // n // 4
+        lo, hi = nominal - reach, nominal + reach
+        best = min(range(lo, hi + 1), key=lambda y: (profile[y], abs(y - nominal)))
+        lines.append(best)
+    return lines + [size]
 
 
 def downscale(cell, scale):
@@ -85,9 +109,9 @@ def downscale(cell, scale):
     return small
 
 
-def build_sheet(name, file, cols, rows, ref):
+def build_sheet(name, file, cols, rows, ref, min_blob=MIN_BLOB):
     src = np.array(Image.open(SRC / file).convert("RGBA"))
-    cells = [clean_cell(c) for c in slice_cells(src, cols, rows)]
+    cells = [clean_cell(c, min_blob) for c in slice_cells(src, cols, rows)]
 
     ys = np.nonzero(cells[ref][1].any(axis=1))[0]
     scale = HEIGHT / (ys.max() - ys.min() + 1)

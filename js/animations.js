@@ -13,6 +13,8 @@
     hungry:  { src: 'assets/sprites/hungry.png',  cols: 4, frames: 16 },
     walk:    { src: 'assets/sprites/walk.png',    cols: 6, frames: 24 },
     poop:    { src: 'assets/sprites/poop.png',    cols: 4, frames: 16 },
+    eat:     { src: 'assets/sprites/eat.png',     cols: 6, frames: 24 },
+    sick:    { src: 'assets/sprites/sick.png',    cols: 6, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     pile:    { src: 'assets/sprites/pile.png' },
   };
@@ -23,6 +25,12 @@
   const hungrySeq = [0, 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const hungryMs = [600, 200, 200, 300, 160, 140, 160, 140, 160, 140, 160, 260,
                     300, 350, 200, 300, 250, 250, 450, 600];
+  // Еда: садится и берёт миску (0–7), ест кадрами 8–15 три подхода, встаёт и гладит живот.
+  const eatLoop = [8, 9, 10, 11, 12, 13, 14, 15];
+  const eatLoopMs = [180, 170, 170, 200, 220, 220, 170, 200];
+  const eatSeq = [...range(8), ...eatLoop, ...eatLoop, ...eatLoop, 16, 17, 18, 19, 20, 21, 20, 21, 22, 23];
+  const eatMs = [500, 220, 220, 260, 260, 300, 350, 300, ...eatLoopMs, ...eatLoopMs, ...eatLoopMs,
+                 300, 260, 220, 220, 300, 300, 300, 300, 300, 600];
 
   const animations = {
     idle: {
@@ -53,6 +61,20 @@
       // Кулак ближе всего к стеклу — удар: весь экран дёргается и затухает.
       shake: { frames: [5, 7], ms: 140, path: [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]] },
       phrases: ['А хинкал будет?', 'Ну покормите уже.'],
+    },
+    eat: {
+      label: 'Ест похлёбку',
+      sheet: 'eat',
+      frames: seq(eatSeq, eatMs),
+      phrases: ['Ммм, похлёбочка.', 'Наконец-то покормили.'],
+    },
+    sick: {
+      label: 'Заболел. Тошнит.',
+      sheet: 'sick',
+      // зеленеет (0–5), согнулся и тошнит (6–17), отходит (18–23)
+      frames: seq(range(24), [600, 300, 300, 350, 350, 450, 300, 250, 160, 160, 140, 140,
+                              140, 160, 180, 300, 350, 400, 400, 350, 350, 350, 350, 600]),
+      phrases: ['Чёт мне нехорошо…', 'Похлёбка была несвежая.'],
     },
     poop: {
       label: 'У него важное дело',

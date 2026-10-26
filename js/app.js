@@ -5,7 +5,7 @@ const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const assets = {};
-const autoQueue = ['scratch', 'walk', 'hungry', 'poop', 'walk', 'scratch'];
+const autoQueue = ['scratch', 'walk', 'hungry', 'eat', 'poop', 'walk', 'sick', 'scratch'];
 const MAX_PILES = 5;
 
 let state = 'idle', elapsed = 0, auto = true, paused = false, speed = 1, ready = false;

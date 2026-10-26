@@ -30,5 +30,21 @@
     "rows": 4,
     "frames": 16,
     "scale": 0.5932
+  },
+  "eat": {
+    "file": "sprites/eat.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.6167
+  },
+  "sick": {
+    "file": "sprites/sick.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.6278
   }
 }
