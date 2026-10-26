@@ -28,11 +28,11 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 # name: (файл, колонки, ряды, индекс эталонного стоячего кадра[, опции])
 # опции: min_blob — порог шума; backdrop — снять серые остатки фона;
 #        register — выровнять кадры по ногам эталонного (для стоячих листов);
-#        blink — пересобрать ряд моргания из кадров дыхания (см. bake_blink)
+#        native — лист уже нарисован в ячейках 240 px: не масштабируем и не двигаем
 SHEETS = {
-    # дыхание 0–5, моргание 6–11, чешет жопу 12–23
-    "idle": ("idle.png", 6, 4, 0, {"backdrop": True, "register": True,
-                                   "blink": {"phases": 6, "closed": 8}}),
+    # уже в игровом формате (240 px, ноги на полу): дыхание 0–15,
+    # моргание 16–23, чешет жопу 24–39 — только чистим
+    "idle": ("idle.png", 8, 5, 0, {"native": True}),
     "hungry": ("hungry.png", 4, 4, 0),
     "walk": ("walk.png", 6, 4, 0),
     "poop": ("poop.png", 4, 4, 0),
@@ -195,63 +195,41 @@ def register(cells, ref):
     return out
 
 
-def eye_mask(tile):
-    """Белки и зрачки внутри очков: светлое в полосе головы плюс то, что внутри."""
-    c = tile[..., :3].astype(int)
-    lum, sat = c.mean(-1), c.max(-1) - c.min(-1)
-    ys = np.nonzero(tile[..., 3].any(axis=1))[0]
-    head = np.zeros(lum.shape, bool)
-    head[ys.min() + 10:ys.min() + 45] = True
-    whites = (tile[..., 3] > 0) & (lum > 165) & (sat < 70) & head
-    labels, n = ndimage.label(whites)
-    sizes = ndimage.sum(whites, labels, range(1, n + 1))
-    whites = np.isin(labels, np.nonzero(sizes >= 3)[0] + 1)
-    core = ndimage.binary_fill_holes(ndimage.binary_closing(whites, iterations=2))
-    ring = ndimage.binary_dilation(core) & ~core
-    return core | (ring & (lum > 45))
-
-
-def eye_shift(tile, ref, box, reach=5):
-    x0, x1, y0, y1 = box
-    t = ref[y0:y1, x0:x1, :3].astype(int)
-    return min(((dx, dy) for dx in range(-reach, reach + 1) for dy in range(-reach, reach + 1)),
-               key=lambda d: np.abs(tile[y0 + d[1]:y1 + d[1], x0 + d[0]:x1 + d[0], :3].astype(int)
-                                    - t).sum())
-
-
-def bake_blink(tiles, phases, closed):
-    """Ряд моргания у генератора перерисован целиком — переключение на него
-    дёргает всю фигуру. Поэтому кадр phases+k собираем заново: это кадр
-    дыхания k, в который пересажены закрытые веки из кадра closed (с учётом
-    того, как голова сдвинулась на вдохе). Движок моргает, на ~100 мс
-    подменяя кадр k на phases+k."""
-    ref = tiles[0]
-    m0 = eye_mask(ref)
-    ys, xs = np.nonzero(m0)
-    box = (xs.min() - 6, xs.max() + 7, ys.min() - 6, ys.max() + 7)
-    src = tiles[closed].copy()
-    sc = eye_shift(src, ref, box)
-    for k in range(phases):
-        tile = tiles[k].copy()
-        sk = eye_shift(tile, ref, box)
-        mask = eye_mask(tile) | np.roll(m0, (sk[1], sk[0]), axis=(0, 1))
-        near = np.zeros_like(mask)   # только рядом с глазами эталона, не ухо и не блики
-        near[box[2] + 3 + sk[1]:box[3] - 3 + sk[1], box[0] + 3 + sk[0]:box[1] - 3 + sk[0]] = True
-        mask &= near
-        yy, xx = np.nonzero(ndimage.binary_dilation(mask))
-        tile[yy, xx] = src[yy - sk[1] + sc[1], xx - sk[0] + sc[0]]
-        tiles[phases + k] = tile
-
-
 def place(small, body_small):
     """Ступни на пол, центр масс тела — на якорь; кучки едут вместе с телом."""
     bys, bxs = np.nonzero(body_small)
     return ANCHOR_X - round(bxs.mean()), FLOOR - bys.max()
 
 
+def build_native(name, src, cols, rows, opts):
+    """Лист, нарисованный сразу в ячейках CELL: полупрозрачность — в 0/255,
+    оторванные крошки (штрихи у ноги) — долой. Без масштаба и сдвигов,
+    чтобы не сбить попиксельное совпадение кадров."""
+    assert src.shape[:2] == (rows * CELL, cols * CELL), src.shape
+    sheet = np.zeros_like(src)
+    for i in range(cols * rows):
+        ox, oy = (i % cols) * CELL, (i // cols) * CELL
+        tile = src[oy:oy + CELL, ox:ox + CELL].copy()
+        tile[tile[..., 3] < ALPHA_CUT, 3] = 0
+        tile[tile[..., 3] > 0, 3] = 255
+        solid = tile[..., 3] > 0
+        labels, n = ndimage.label(solid, structure=np.ones((3, 3)))
+        sizes = ndimage.sum(solid, labels, range(1, n + 1))
+        keep = np.zeros(n + 1, bool)
+        keep[1:] = sizes >= sizes.max() * opts.get("min_blob", MIN_BLOB)
+        tile[~keep[labels], 3] = 0
+        tile[tile[..., 3] == 0, :3] = 0
+        sheet[oy:oy + CELL, ox:ox + CELL] = tile
+    Image.fromarray(sheet).save(OUT / f"{name}.png", optimize=True)
+    return {"file": f"sprites/{name}.png", "cell": CELL, "cols": cols, "rows": rows,
+            "frames": cols * rows, "scale": 1}
+
+
 def build_sheet(name, file, cols, rows, ref, opts=None):
     opts = opts or {}
     src = np.array(Image.open(SRC / file).convert("RGBA"))
+    if opts.get("native"):
+        return build_native(name, src, cols, rows, opts)
     cells = [clean_cell(c, opts.get("min_blob", MIN_BLOB), opts.get("backdrop", False))
              for c in slice_cells(src, cols, rows)]
     if opts.get("register"):
@@ -278,9 +256,6 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         cw, ch = min(w - sx0, CELL - tx0), min(h - sy0, CELL - ty0)
         tile[ty0:ty0 + ch, tx0:tx0 + cw] = small[sy0:sy0 + ch, sx0:sx0 + cw]
         tiles.append(tile)
-
-    if opts.get("blink"):
-        bake_blink(tiles, **opts["blink"])
 
     sheet = np.zeros((rows * CELL, cols * CELL, 4), np.uint8)
     for i, tile in enumerate(tiles):

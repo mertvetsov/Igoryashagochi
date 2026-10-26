@@ -2,10 +2,10 @@
   "idle": {
     "file": "sprites/idle.png",
     "cell": 240,
-    "cols": 6,
-    "rows": 4,
-    "frames": 24,
-    "scale": 0.6452
+    "cols": 8,
+    "rows": 5,
+    "frames": 40,
+    "scale": 1
   },
   "hungry": {
     "file": "sprites/hungry.png",
