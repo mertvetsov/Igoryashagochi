@@ -79,6 +79,14 @@
     "frames": 24,
     "scale": 0.6863
   },
+  "sad": {
+    "file": "sprites/sad.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.6278
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,

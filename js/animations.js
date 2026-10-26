@@ -21,6 +21,7 @@
     tanks_lose: { src: 'assets/sprites/tanks_lose.png', cols: 6, frames: 24 },
     love:    { src: 'assets/sprites/love.png',    cols: 8, frames: 24 },
     sleep:   { src: 'assets/sprites/sleep.png',   cols: 6, frames: 24 },
+    sad:     { src: 'assets/sprites/sad.png',     cols: 6, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -82,6 +83,13 @@
   const sleepMs = [500, 450, 650, 350, 350, 400, 400, 500,
                    ...sleepLoopMs, ...sleepLoopMs, ...sleepLoopMs, ...sleepLoopMs,
                    400, 650, 350, 500, 350, 350, 400, 600];
+  // Несчастный: грустнеет и пускает слезу (0–11), рыдает 12–17 два круга
+  // (на 15-м трясутся плечи), вытирает слёзы и успокаивается (18–23).
+  const sobLoop = range(6).map(i => i + 12);
+  const sobMs = [420, 300, 260, 220, 320, 360];
+  const sadSeq = [...range(12), ...sobLoop, ...sobLoop, ...range(6).map(i => i + 18)];
+  const sadMs = [600, 450, 400, 400, 450, 450, 400, 400, 350, 400, 400, 450,
+                 ...sobMs, ...sobMs, 400, 550, 400, 400, 450, 700];
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -165,6 +173,12 @@
       // пока лежит — от головы всплывают «z» (x, y — где голова, кадры — когда)
       zzz: { frames: sleepLoop, x: 72, y: 124 },
       phrases: ['Чёт я устал…', 'Ой вей, спать.', 'Разбудите к хинкалу.'],
+    },
+    sad: {
+      label: 'Несчастный. Плачет.',
+      sheet: 'sad',
+      frames: seq(sadSeq, sadMs),
+      phrases: ['Ой вей, никто меня не любит…', 'Ну ой… ну за шо?', 'Хинкала нет, и жизни нет.', 'Я просто устал от всего.'],
     },
     poop: {
       label: 'У него важное дело',

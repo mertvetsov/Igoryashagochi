@@ -6,7 +6,7 @@ const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const assets = {};
-const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 'love', 'sick'];
+const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 'sad', 'love', 'sick'];
 
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, ready = false;
 let speed = Number($('speed').value);   // по умолчанию 1.75× — задано в index.html
