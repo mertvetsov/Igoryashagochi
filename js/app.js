@@ -8,7 +8,8 @@ ctx.imageSmoothingEnabled = false;
 const assets = {};
 const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 'love', 'sick'];
 
-let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
+let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, ready = false;
+let speed = Number($('speed').value);   // по умолчанию 1.75× — задано в index.html
 let last = 0, phrase = '', queueIndex = 0, events = [];
 let heap = null, pooped = false;   // куча в углу (js/heap.js) и «уже сходил в этом показе»
 
@@ -119,12 +120,14 @@ function wrap(text, width) {
   return [...lines, line];
 }
 
-// Пузырь во всю ширину экрана, с хвостиком вниз к голове.
-const BUBBLE = { x: 6, y: 6, w: CELL - 12, pad: 7, line: 16, font: 'bold 14px monospace' };
+// Пузырь по ширине текста (не шире экрана), по центру, с хвостиком вниз к голове.
+const BUBBLE = { maxW: CELL - 12, y: 6, pad: 7, line: 16, font: 'bold 14px monospace' };
 function drawSpeech() {
-  const b = BUBBLE;
-  ctx.font = b.font;
-  const lines = wrap(phrase, b.w - 2 * b.pad);
+  ctx.font = BUBBLE.font;
+  const { pad, line } = BUBBLE;
+  const lines = wrap(phrase, BUBBLE.maxW - 2 * pad);
+  const w = Math.ceil(Math.max(...lines.map(l => ctx.measureText(l).width))) + 2 * pad;
+  const b = { x: Math.round((CELL - w) / 2), y: BUBBLE.y, w, pad, line };
   const h = lines.length * b.line + 2 * b.pad - 2;
   ctx.fillStyle = '#22281e';   // тёмная рамка в 1 px — читается и днём, и ночью
   ctx.fillRect(b.x - 1, b.y - 1, b.w + 2, h + 2);
