@@ -36,7 +36,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки);
 #        cut_pile — вырезать кучку у ноги (лист «посрать»);
-#        figures — сетка неровная: резать по отдельным фигурам в каждом ряду
+#        figures — сетка неровная: резать по отдельным фигурам в каждом ряду;
+#        drop_white — убрать оторванные белые крошки (остатки фона)
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -55,8 +56,10 @@ SHEETS = {
     # устаёт и ложится 0–7, спит и храпит 8–15 (цикл), встаёт 16–23;
     # в исходнике ряды по 6, 6, 4 и 8 кадров — режем по фигурам
     "sleep": ("sleep.png", 6, 4, 0, {"figures": True}),
-    # грустит и плачет 0–17, вытирает слёзы и успокаивается 18–23; стоит на месте
-    "sad": ("sad.png", 6, 4, 0, {"register": True, "min_blob": 0.0005}),
+    # истерика: грустит 0–5, ревёт и машет руками 6–17, вытирает слёзы и
+    # успокаивается 18–23; руки размахивает широко — колонки режем по рядам
+    "sad": ("sad.png", 6, 4, 0, {"register": True, "per_row": True, "min_blob": 0.0005,
+                                 "drop_white": True}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
@@ -333,6 +336,18 @@ def cut_pile(cell):
     return cell
 
 
+def drop_white_specks(cell, max_size=60):
+    """Оторванные белые крошки — остатки белого фона генератора, не часть рисунка."""
+    cell = cell.copy()
+    solid = cell[..., 3] > 0
+    labels, n = ndimage.label(solid, structure=np.ones((3, 3)))
+    for k in range(1, n + 1):
+        blob = labels == k
+        if blob.sum() <= max_size and cell[blob][:, :3].mean() > 225:
+            cell[blob, 3] = 0
+    return cell
+
+
 def pants_mask(tile):
     """Тёмно-синие треники — есть только у Игоряши, не у реквизита."""
     c = tile[..., :3].astype(int)
@@ -388,6 +403,8 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         slice_cells(src, cols, rows, opts.get("per_row", False))
     cells = [clean_cell(c, opts.get("min_blob", MIN_BLOB), opts.get("backdrop", False)) for c in sliced]
     assert len(cells) == cols * rows, (name, len(cells))
+    if opts.get("drop_white"):
+        cells = [(drop_white_specks(c), b) for c, b in cells]
     if opts.get("cut_pile"):
         cells = [(cut_pile(c), b) for c, b in cells]
     if opts.get("register"):
