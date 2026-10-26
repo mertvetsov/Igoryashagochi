@@ -206,11 +206,47 @@ function currentLight() {
   return v === 'auto' ? timeOfDay() : v;
 }
 
-function applyLight(name) {
+// Мерцание: телевизор — неровные вспышки смены кадра, игра — частые всполохи взрывов.
+function flicker(kind, t) {
+  if (kind === 'tv') {
+    const cut = Math.floor(t / 700);                          // «смена сцены» раз в 0,7 с
+    const scene = 0.75 + 0.25 * Math.sin(cut * 12.9898);       // у каждой сцены своя яркость
+    return scene * (0.9 + 0.1 * Math.sin(t / 37) * Math.sin(t / 91));
+  }
+  const boom = Math.max(0, Math.sin(t / 140)) ** 8;           // редкие взрывы
+  return 0.8 + 0.1 * Math.sin(t / 53) + 0.35 * boom;
+}
+
+// Живые источники складываются с картой поверх неё, на рабочем холсте.
+const lightWork = document.createElement('canvas');
+lightWork.width = lightWork.height = CELL;
+const lw = lightWork.getContext('2d');
+function addLight(l, t) {
+  const p = l.power * (l.flicker ? flicker(l.flicker, t) : 1);
+  const g = lw.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+  g.addColorStop(0, `rgba(${l.color},${Math.min(1, p).toFixed(2)})`);
+  g.addColorStop(1, `rgba(${l.color},0)`);
+  lw.fillStyle = g;
+  lw.fillRect(0, 0, CELL, CELL);
+}
+
+function applyLight(name, a, f) {
   const map = lightMap(name);
   if (!map) return;
+  const L = lighting[name];
+  const glow = name === 'night' && a.glow && f.frame >= a.glow.from ? a.glow : null;
+  let src = map;
+  if (L.live || glow) {
+    const t = performance.now();
+    lw.globalCompositeOperation = 'copy';
+    lw.drawImage(map, 0, 0);
+    lw.globalCompositeOperation = 'lighter';
+    for (const l of L.live || []) addLight(l, t);
+    if (glow) addLight(glow, t);
+    src = lightWork;
+  }
   ctx.globalCompositeOperation = 'multiply';
-  ctx.drawImage(map, 0, 0);
+  ctx.drawImage(src, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
 }
 
@@ -237,7 +273,7 @@ function draw() {
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
   heap.drawFx();
   const light = currentLight();
-  applyLight(light);   // реплики и «z» — поверх света, чтобы читались и ночью
+  applyLight(light, a, f);   // реплики и «z» — поверх света, чтобы читались и ночью
   if (a.zzz && a.zzz.frames.includes(f.frame)) drawZzz(a.zzz, elapsed);
   if ($('speech').checked && elapsed < 2600) drawSpeech();
   ctx.restore();
