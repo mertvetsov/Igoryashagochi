@@ -364,8 +364,12 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     meta = {name: build_sheet(name, *args) for name, args in SHEETS.items()}
-    for extra in ("room", "pile"):
-        Image.open(SRC / f"{extra}.png").save(OUT / f"{extra}.png", optimize=True)
+    # фон комнаты рисуется крупно — уменьшаем до размера экрана
+    room = Image.open(SRC / "room.png").convert("RGB")
+    if room.size != (CELL, CELL):
+        room = room.resize((CELL, CELL), Image.LANCZOS)
+    room.save(OUT / "room.png", optimize=True)
+    Image.open(SRC / "pile.png").save(OUT / "pile.png", optimize=True)
     (OUT / "sheets.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
     for name, m in meta.items():
         print(f"{name:8} {m['cols']}×{m['rows']}  scale {m['scale']}")
