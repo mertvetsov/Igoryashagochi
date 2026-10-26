@@ -107,16 +107,29 @@ function drawSpeech() {
   ctx.textAlign = 'left';
 }
 
+// Сдвиг всей картинки при ударе по стеклу. Считается от времени внутри кадра,
+// поэтому работает и на паузе, и при покадровом шаге.
+function shakeOffset(a, f) {
+  const s = a.shake;
+  if (!s || !$('shake').checked || !s.frames.includes(f.frame) || f.local >= s.ms) return [0, 0];
+  return s.path[Math.floor(f.local / s.ms * s.path.length)];
+}
+
 function draw() {
-  ctx.clearRect(0, 0, CELL, CELL);
+  const a = animations[state], f = frameAt(elapsed);
+  const [sx, sy] = shakeOffset(a, f);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, CELL, CELL);
+  ctx.save();
+  ctx.translate(sx, sy);
   drawBackground();
   if ($('grid').checked) drawGrid();
 
-  const a = animations[state], f = frameAt(elapsed);
   // Старые кучки отъезжают влево, свежая — в кадре самого спрайта.
   for (let i = 0; i < piles; i++) ctx.drawImage(assets.pile, -(piles - 1 - i) * 8 - (a.leavesPile ? 8 : 0), 0);
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
   if ($('speech').checked && elapsed < 2600) drawSpeech();
+  ctx.restore();
 
   $('frame').textContent = `кадр ${String(f.frame + 1).padStart(2, '0')} / ${sheets[a.sheet].frames}`;
   $('progress').style.width = Math.min(100, elapsed / a.duration * 100) + '%';
