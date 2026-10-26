@@ -12,6 +12,7 @@ let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, re
 let speed = Number($('speed').value);   // по умолчанию 1.75× — задано в index.html
 let last = 0, phrase = '', queueIndex = 0, events = [];
 let heap = null, pooped = false;   // куча в углу (js/heap.js) и «уже сходил в этом показе»
+let cracks = null, lastStep = -1;  // трещины на стекле (js/cracks.js) и шаг, на котором уже ударил
 
 function addLog(text) {
   events = [text, ...events].slice(0, 6);
@@ -27,6 +28,8 @@ function setState(next, manual = false) {
   current = play(next);
   elapsed = 0;
   pooped = false;
+  lastStep = -1;
+  if (current.cracks && cracks) cracks.reset();
   phrase = pickPhrase(animations[next]);
   if (manual) auto = false;
   updateUI();
@@ -214,6 +217,9 @@ function applyLight(name) {
 function draw() {
   const a = current, f = frameAt(elapsed);
   const [sx, sy] = shakeOffset(a, f);
+  // Удар кулаком по стеклу — трещины растут (на шаг анимации — один удар).
+  if (a.cracks && f.index !== lastStep && a.shake.frames.includes(f.frame)) cracks.hit(a.cracks.x, a.cracks.y);
+  lastStep = f.index;
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, CELL, CELL);
   ctx.save();
@@ -235,6 +241,7 @@ function draw() {
   if (a.zzz && a.zzz.frames.includes(f.frame)) drawZzz(a.zzz, elapsed);
   if ($('speech').checked && elapsed < 2600) drawSpeech();
   ctx.restore();
+  cracks.draw();   // стекло не трясётся вместе с картинкой и лежит поверх всего
 
   $('lightNow').textContent = lighting[light].label.toLowerCase();
   $('frame').textContent = `кадр ${String(f.frame + 1).padStart(2, '0')} / ${sheets[a.sheet].frames}`;
@@ -254,6 +261,7 @@ function tick(now) {
   last = now;
   if (!paused) {
     heap.update(dt * speed);
+    cracks.update(dt * speed, !!current.cracks);
     elapsed += dt * speed;
     if (elapsed >= current.duration) complete();
   }
@@ -300,6 +308,7 @@ function load(name, src) {
 Promise.all(Object.entries(sheets).map(([name, s]) => load(name, s.src)))
   .then(() => {
     heap = window.Heap(ctx, assets.pile, { CELL, frames: sheets.pile.frames, ...heapConfig });
+    cracks = window.Cracks(ctx, CELL);
     ready = true;
     bindUI();
     setState('idle');
