@@ -30,12 +30,15 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        register — выровнять кадры по ногам эталонного (для стоячих листов);
 #        blink — пересобрать ряд моргания из кадров дыхания (см. bake_blink);
 #        native — лист уже нарисован в ячейках 240 px: не масштабируем и не двигаем;
+#        center — (с native) сдвинуть весь лист одним шагом, чтобы эталонный кадр
+#                 встал как в остальных листах: центр тела на ANCHOR_X, ступни на FLOOR;
 #        per_row — резать колонки в каждом ряду отдельно, по середине широких промежутков;
 #        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки)
 SHEETS = {
-    # дыхание 0–5, моргание 6–11, чешет жопу 12–23
-    "idle": ("idle.png", 6, 4, 0, {"register": True, "blink": {"phases": 6, "closed": 8}}),
+    # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
+    # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
+    "idle": ("idle.png", 6, 2, 0, {"native": True, "center": True}),
     "hungry": ("hungry.png", 4, 4, 0),
     "walk": ("walk.png", 6, 4, 0),
     "poop": ("poop.png", 4, 4, 0),
@@ -280,9 +283,11 @@ def place(small, body_small):
 
 def build_native(name, src, cols, rows, opts):
     """Лист, нарисованный сразу в ячейках CELL: полупрозрачность — в 0/255,
-    оторванные крошки (штрихи у ноги) — долой. Без масштаба и сдвигов,
-    чтобы не сбить попиксельное совпадение кадров."""
-    assert src.shape[:2] == (rows * CELL, cols * CELL), src.shape
+    оторванные крошки (штрихи у ноги) — долой. Без масштаба, а сдвиг (center)
+    один на все кадры, чтобы не сбить их попиксельное совпадение. Лишние
+    ряды снизу (rows меньше, чем в исходнике) отбрасываются."""
+    assert src.shape[1] == cols * CELL and src.shape[0] >= rows * CELL, src.shape
+    src = src[:rows * CELL]
     sheet = np.zeros_like(src)
     for i in range(cols * rows):
         ox, oy = (i % cols) * CELL, (i // cols) * CELL
@@ -297,6 +302,14 @@ def build_native(name, src, cols, rows, opts):
         tile[~keep[labels], 3] = 0
         tile[tile[..., 3] == 0, :3] = 0
         sheet[oy:oy + CELL, ox:ox + CELL] = tile
+    if opts.get("center"):
+        ref = sheet[:CELL, :CELL, 3] > 0
+        ys, xs = np.nonzero(ref)
+        dx, dy = ANCHOR_X - round(xs.mean()), FLOOR - ys.max()
+        tiles = [shift(sheet[(i // cols) * CELL:(i // cols + 1) * CELL, (i % cols) * CELL:(i % cols + 1) * CELL], dx, dy)
+                 for i in range(cols * rows)]
+        for i, tile in enumerate(tiles):
+            sheet[(i // cols) * CELL:(i // cols + 1) * CELL, (i % cols) * CELL:(i % cols + 1) * CELL] = tile
     Image.fromarray(sheet).save(OUT / f"{name}.png", optimize=True)
     return {"file": f"sprites/{name}.png", "cell": CELL, "cols": cols, "rows": rows,
             "frames": cols * rows, "scale": 1}

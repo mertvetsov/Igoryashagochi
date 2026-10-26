@@ -9,8 +9,8 @@
   const range = n => Array.from({ length: n }, (_, i) => i);
 
   const sheets = {
-    // 0–5 дыхание, 6–11 те же кадры с закрытыми глазами, 12–23 чешет жопу
-    idle:    { src: 'assets/sprites/idle.png',    cols: 6, frames: 24 },
+    // 0–5 дыхание, 6–11 те же кадры с закрытыми глазами
+    idle:    { src: 'assets/sprites/idle.png',    cols: 6, frames: 12 },
     hungry:  { src: 'assets/sprites/hungry.png',  cols: 4, frames: 16 },
     walk:    { src: 'assets/sprites/walk.png',    cols: 6, frames: 24 },
     poop:    { src: 'assets/sprites/poop.png',    cols: 4, frames: 16 },
@@ -25,7 +25,7 @@
   };
 
   // Статика: дышит кадрами 0–5 и иногда моргает. Кадр k+BLINK — это кадр
-  // дыхания k с пересаженными закрытыми веками, поэтому моргнуть можно на любой фазе.
+  // дыхания k с закрытыми глазами, поэтому моргнуть можно на любой фазе.
   const BREATH = [400, 300, 300, 400, 300, 300];
   const BLINK = 6, BLINK_MS = 100;
   function idleFrames(rand = Math.random) {
@@ -43,10 +43,6 @@
     }
     return frames;
   }
-  // Чешет жопу: заводит руку (12–13), чешет кадрами 14–17 три раза, опускает руку (18–23).
-  const scratchLoop = [14, 15, 16, 17];
-  const scratchSeq = [12, 13, ...scratchLoop, ...scratchLoop, ...scratchLoop, 18, 19, 20, 21, 22, 23];
-  const scratchMs = [300, 220, ...Array(12).fill(130), 220, 220, 200, 220, 260, 500];
   // Голод: стучит кулаком в экран (кадры 4–7) два раза подряд, потом показывает на рот и живот.
   const hungrySeq = [0, 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const hungryMs = [600, 200, 200, 300, 160, 140, 160, 140, 160, 140, 160, 260,
@@ -86,12 +82,6 @@
       sheet: 'idle',
       build: idleFrames,   // кадры собираются заново на каждый показ
       phrases: ['Ну чо вы смотрите?', 'О_О', 'Я всё контролирую.', 'Ну стою. И шо?', 'Ой, не начинайте.'],
-    },
-    scratch: {
-      label: 'Чешет жопу',
-      sheet: 'idle',
-      frames: seq(scratchSeq, scratchMs),
-      phrases: ['Задумался.', 'Дела житейские.', 'Ой вей, чешется.', 'Ну а шо, имею право.'],
     },
     walk: {
       label: 'Нервно ходит туда-сюда',
