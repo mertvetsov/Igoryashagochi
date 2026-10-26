@@ -28,14 +28,14 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 # name: (файл, колонки, ряды, индекс эталонного стоячего кадра[, опции])
 # опции: min_blob — порог шума; backdrop — снять серые остатки фона;
 #        register — выровнять кадры по ногам эталонного (для стоячих листов);
+#        blink — пересобрать ряд моргания из кадров дыхания (см. bake_blink);
 #        native — лист уже нарисован в ячейках 240 px: не масштабируем и не двигаем;
 #        per_row — резать колонки в каждом ряду отдельно, по середине широких промежутков;
 #        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки)
 SHEETS = {
-    # уже в игровом формате (240 px, ноги на полу): дыхание 0–15,
-    # моргание 16–23, чешет жопу 24–39 — только чистим
-    "idle": ("idle.png", 8, 5, 0, {"native": True}),
+    # дыхание 0–5, моргание 6–11, чешет жопу 12–23
+    "idle": ("idle.png", 6, 4, 0, {"register": True, "blink": {"phases": 6, "closed": 9}}),
     "hungry": ("hungry.png", 4, 4, 0),
     "walk": ("walk.png", 6, 4, 0),
     "poop": ("poop.png", 4, 4, 0),
@@ -218,6 +218,54 @@ def register(cells, ref):
     return out
 
 
+def eye_mask(tile):
+    """Белки и зрачки внутри очков: светлое в полосе головы плюс то, что внутри."""
+    c = tile[..., :3].astype(int)
+    lum, sat = c.mean(-1), c.max(-1) - c.min(-1)
+    ys = np.nonzero(tile[..., 3].any(axis=1))[0]
+    head = np.zeros(lum.shape, bool)
+    head[ys.min() + 10:ys.min() + 45] = True
+    whites = (tile[..., 3] > 0) & (lum > 165) & (sat < 70) & head
+    labels, n = ndimage.label(whites)
+    sizes = ndimage.sum(whites, labels, range(1, n + 1))
+    whites = np.isin(labels, np.nonzero(sizes >= 3)[0] + 1)
+    core = ndimage.binary_fill_holes(ndimage.binary_closing(whites, iterations=2))
+    ring = ndimage.binary_dilation(core) & ~core
+    return core | (ring & (lum > 45))
+
+
+def eye_shift(tile, ref, box, reach=5):
+    x0, x1, y0, y1 = box
+    t = ref[y0:y1, x0:x1, :3].astype(int)
+    return min(((dx, dy) for dx in range(-reach, reach + 1) for dy in range(-reach, reach + 1)),
+               key=lambda d: np.abs(tile[y0 + d[1]:y1 + d[1], x0 + d[0]:x1 + d[0], :3].astype(int)
+                                    - t).sum())
+
+
+def bake_blink(tiles, phases, closed):
+    """Ряд моргания у генератора перерисован целиком — переключение на него
+    дёргает всю фигуру. Поэтому кадр phases+k собираем заново: это кадр
+    дыхания k, в который пересажены закрытые веки из кадра closed (с учётом
+    того, как голова сдвинулась на вдохе). Движок моргает, на ~100 мс
+    подменяя кадр k на phases+k."""
+    ref = tiles[0]
+    m0 = eye_mask(ref)
+    ys, xs = np.nonzero(m0)
+    box = (xs.min() - 6, xs.max() + 7, ys.min() - 6, ys.max() + 7)
+    src = tiles[closed].copy()
+    sc = eye_shift(src, ref, box)
+    for k in range(phases):
+        tile = tiles[k].copy()
+        sk = eye_shift(tile, ref, box)
+        mask = eye_mask(tile) | np.roll(m0, (sk[1], sk[0]), axis=(0, 1))
+        near = np.zeros_like(mask)   # только рядом с глазами эталона, не ухо и не блики
+        near[box[2] + 3 + sk[1]:box[3] - 3 + sk[1], box[0] + 3 + sk[0]:box[1] - 3 + sk[0]] = True
+        mask &= near
+        yy, xx = np.nonzero(ndimage.binary_dilation(mask))
+        tile[yy, xx] = src[yy - sk[1] + sc[1], xx - sk[0] + sc[0]]
+        tiles[phases + k] = tile
+
+
 def pants_mask(tile):
     """Тёмно-синие треники — есть только у Игоряши, не у реквизита."""
     c = tile[..., :3].astype(int)
@@ -299,6 +347,9 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         cw, ch = min(w - sx0, CELL - tx0), min(h - sy0, CELL - ty0)
         tile[ty0:ty0 + ch, tx0:tx0 + cw] = small[sy0:sy0 + ch, sx0:sx0 + cw]
         tiles.append(tile)
+
+    if opts.get("blink"):
+        bake_blink(tiles, **opts["blink"])
 
     sheet = np.zeros((rows * CELL, cols * CELL, 4), np.uint8)
     for i, tile in enumerate(tiles):
