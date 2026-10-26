@@ -15,6 +15,9 @@
     poop:    { src: 'assets/sprites/poop.png',    cols: 4, frames: 16 },
     eat:     { src: 'assets/sprites/eat.png',     cols: 6, frames: 24 },
     sick:    { src: 'assets/sprites/sick.png',    cols: 6, frames: 24 },
+    tanks:      { src: 'assets/sprites/tanks.png',      cols: 6, frames: 24 },
+    tanks_win:  { src: 'assets/sprites/tanks_win.png',  cols: 6, frames: 24 },
+    tanks_lose: { src: 'assets/sprites/tanks_lose.png', cols: 6, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     pile:    { src: 'assets/sprites/pile.png' },
   };
@@ -31,6 +34,20 @@
   const eatSeq = [...range(8), ...eatLoop, ...eatLoop, ...eatLoop, 16, 17, 18, 19, 20, 21, 20, 21, 22, 23];
   const eatMs = [500, 220, 220, 260, 260, 300, 350, 300, ...eatLoopMs, ...eatLoopMs, ...eatLoopMs,
                  300, 260, 220, 220, 300, 300, 300, 300, 300, 600];
+  // Танки: достаёт ноут и садится (0–11), рубится кадрами 12–23 три катки подряд,
+  // дальше случайно победа или проигрыш (отдельные листы).
+  const tanksLoop = range(12).map(i => i + 12);
+  const tanksLoopMs = [130, 220, 130, 220, 130, 240, 130, 220, 130, 130, 160, 130];
+  const tanksSeq = [...range(12), ...tanksLoop, ...tanksLoop, ...tanksLoop];
+  const tanksMs = [500, 250, 250, 300, 250, 250, 300, 250, 250, 250, 250, 250,
+                   ...tanksLoopMs, ...tanksLoopMs, ...tanksLoopMs];
+  const winSeq = [...range(19), 17, 18, 19, 20, 21, 22, 23];
+  const winMs = [300, 300, 250, 400, 250, 250, 220, 220, 220, 220, 220, 220,
+                 220, 220, 220, 220, 220, 300, 300, 300, 300, 250, 300, 300, 400, 700];
+  const loseMs = [200, 200, 250, 300, 250, 250, 250, 250, 300, 350, 400, 350,
+                  250, 250, 350, 250, 450, 350, 350, 500, 350, 350, 350, 700];
+  // Удар по стеклу: весь экран дёргается и затухает.
+  const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
   const animations = {
     idle: {
@@ -58,8 +75,8 @@
       label: 'Требует хинкал',
       sheet: 'hungry',
       frames: seq(hungrySeq, hungryMs),
-      // Кулак ближе всего к стеклу — удар: весь экран дёргается и затухает.
-      shake: { frames: [5, 7], ms: 140, path: [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]] },
+      // кулак ближе всего к стеклу — удар
+      shake: { frames: [5, 7], ms: 140, path: SHAKE },
       phrases: ['А хинкал будет?', 'Ну покормите уже.'],
     },
     eat: {
@@ -75,6 +92,29 @@
       frames: seq(range(24), [600, 300, 300, 350, 350, 450, 300, 250, 160, 160, 140, 140,
                               140, 160, 180, 300, 350, 400, 400, 350, 350, 350, 350, 600]),
       phrases: ['Чёт мне нехорошо…', 'Похлёбка была несвежая.'],
+    },
+    tanks: {
+      label: 'Играет в танки',
+      sheet: 'tanks',
+      frames: seq(tanksSeq, tanksMs),
+      next: ['tanks_win', 'tanks_lose'],
+      phrases: ['Ща я их всех.', 'Куда ты едешь?!', 'Арта, ну ёпт.'],
+    },
+    tanks_win: {
+      group: 'tanks',
+      label: 'Затащил катку',
+      sheet: 'tanks_win',
+      frames: seq(winSeq, winMs),
+      phrases: ['Изи катка!', 'Тащу!'],
+    },
+    tanks_lose: {
+      group: 'tanks',
+      label: 'Слил катку. Ноутбуку конец.',
+      sheet: 'tanks_lose',
+      frames: seq(range(24), loseMs),
+      // бьёт ноутом об пол и топчет обломки
+      shake: { frames: [11, 14], ms: 180, path: SHAKE },
+      phrases: ['Это всё лаги!', 'Ноут виноват.'],
     },
     poop: {
       label: 'У него важное дело',

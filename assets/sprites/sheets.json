@@ -46,5 +46,29 @@
     "rows": 4,
     "frames": 24,
     "scale": 0.6278
+  },
+  "tanks": {
+    "file": "sprites/tanks.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.5761
+  },
+  "tanks_win": {
+    "file": "sprites/tanks_win.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.5932
+  },
+  "tanks_lose": {
+    "file": "sprites/tanks_lose.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.5907
   }
 }

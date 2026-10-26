@@ -5,7 +5,7 @@ const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const assets = {};
-const autoQueue = ['scratch', 'walk', 'hungry', 'eat', 'poop', 'walk', 'sick', 'scratch'];
+const autoQueue = ['scratch', 'walk', 'hungry', 'eat', 'poop', 'tanks', 'walk', 'sick', 'scratch'];
 const MAX_PILES = 5;
 
 let state = 'idle', elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
@@ -40,8 +40,9 @@ function updateUI() {
   $('pause').setAttribute('aria-pressed', paused);
   $('live').textContent = paused ? 'ПАУЗА' : auto ? 'ЖИВЁТ СВОЮ ЖИЗНЬ' : 'РУЧНОЙ РЕЖИМ';
   document.querySelectorAll('[data-action]').forEach(b => {
-    b.classList.toggle('active', b.dataset.action === state);
-    b.setAttribute('aria-pressed', b.dataset.action === state);
+    const on = b.dataset.action === (animations[state].group || state);
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on);
   });
   $('poopCount').textContent = 'на полу: ' + piles;
 }
@@ -136,7 +137,9 @@ function draw() {
 }
 
 function complete() {
-  if (animations[state].leavesPile) piles = Math.min(MAX_PILES, piles + 1);
+  const a = animations[state];
+  if (a.leavesPile) piles = Math.min(MAX_PILES, piles + 1);
+  if (a.next) return setState(a.next[Math.floor(Math.random() * a.next.length)]);
   if (auto && state === 'idle') setState(autoQueue[queueIndex++ % autoQueue.length]);
   else setState('idle');
 }
