@@ -34,14 +34,16 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #                 встал как в остальных листах: центр тела на ANCHOR_X, ступни на FLOOR;
 #        per_row — резать колонки в каждом ряду отдельно, по середине широких промежутков;
 #        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
-#        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки)
+#        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки);
+#        cut_pile — вырезать кучку у ноги (лист «посрать»)
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
     "idle": ("idle.png", 6, 2, 0, {"native": True, "center": True}),
     "hungry": ("hungry.png", 4, 4, 0),
     "walk": ("walk.png", 6, 4, 0),
-    "poop": ("poop.png", 4, 4, 0),
+    # кучку у ноги вырезаем — куча живёт отдельно, в углу комнаты
+    "poop": ("poop.png", 4, 4, 0, {"cut_pile": True}),
     "eat": ("eat.png", 6, 4, 0),
     # брызги рвоты мелкие — порог ниже, чтобы их не съело
     "sick": ("sick.png", 6, 4, 0, {"min_blob": 0.0005}),
@@ -269,6 +271,38 @@ def bake_blink(tiles, phases, closed):
         tiles[phases + k] = tile
 
 
+def cut_pile(cell):
+    """Убирает кучку, которую Игоряша оставляет у ноги в листе «посрать»:
+    коричневое ниже колен и левее штанин плюс её тёмный контур. В одном
+    кадре кучка касается сандалии, поэтому вырезаем по цвету, а не кусками."""
+    cell = cell.copy()
+    c = cell[..., :3].astype(int)
+    r, g, b = c[..., 0], c[..., 1], c[..., 2]
+    lum = c.mean(-1)
+    solid = cell[..., 3] > 0
+    ys = np.nonzero(solid.any(axis=1))[0]
+    low = np.zeros(r.shape, bool)
+    low[int(ys.max() - 0.22 * (ys.max() - ys.min())):] = True
+    px = np.nonzero(pants_mask(cell) & low)[1]
+    left = np.zeros(r.shape, bool)
+    left[:, :px.min()] = True
+    brown = solid & low & left & (r > 60) & (r < 210) & (g > 25) & (g < 130) & (b < 90) \
+        & (r - g > 25) & (g - b > 8)
+    labels, n = ndimage.label(brown, structure=np.ones((3, 3)))
+    if n == 0:
+        return cell
+    sizes = ndimage.sum(brown, labels, range(1, n + 1))
+    pile = labels == np.argmax(sizes) + 1
+    ring = ndimage.binary_dilation(pile, iterations=4) & solid & ~pile & left & (lum < 110) & (b <= r + 8)
+    cell[pile | ring, 3] = 0
+    solid = cell[..., 3] > 0
+    labels, n = ndimage.label(solid, structure=np.ones((3, 3)))
+    sizes = ndimage.sum(solid, labels, range(1, n + 1))
+    cell[labels != np.argmax(sizes) + 1, 3] = 0
+    cell[cell[..., 3] == 0, :3] = 0
+    return cell
+
+
 def pants_mask(tile):
     """Тёмно-синие треники — есть только у Игоряши, не у реквизита."""
     c = tile[..., :3].astype(int)
@@ -322,6 +356,8 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         return build_native(name, src, cols, rows, opts)
     cells = [clean_cell(c, opts.get("min_blob", MIN_BLOB), opts.get("backdrop", False))
              for c in slice_cells(src, cols, rows, opts.get("per_row", False))]
+    if opts.get("cut_pile"):
+        cells = [(cut_pile(c), b) for c, b in cells]
     if opts.get("register"):
         cells = register(cells, ref)
 
@@ -374,35 +410,32 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
             "frames": cols * rows, "scale": round(scale, 4)}
 
 
-# Куча растёт: одна и та же кучка в PILE_WIDTHS размерах, правый нижний
-# угол прижат к ноге Игоряши (PILE_ANCHOR), растёт влево и вверх.
-# Берётся из крупного исходника «посрать», а не растягивается из 23 px.
-PILE_FROM = ("poop.png", 4, 4, 13)
-PILE_WIDTHS = [23, 27, 31, 36, 41, 46, 51, 56]
-PILE_ANCHOR = (84, 196)
+# Куча в углу комнаты: 6 размеров из source/heap.png (3×2), один общий масштаб,
+# чтобы самая большая была HEAP_MAX_W px в ширину. Низ по центру — в HEAP_ANCHOR
+# (передний левый угол у дивана). Кадр листа = размер кучи.
+HEAP_FROM = ("heap.png", 3, 2)
+HEAP_MAX_W = 66
+HEAP_ANCHOR = (42, 198)
 
 
-def build_pile():
-    file, cols, rows, frame = PILE_FROM
+def build_heap():
+    file, cols, rows = HEAP_FROM
     src = np.array(Image.open(SRC / file).convert("RGBA"))
-    cell, _ = clean_cell(list(slice_cells(src, cols, rows))[frame])
-    solid = cell[..., 3] > 0
-    labels, n = ndimage.label(solid, structure=np.ones((3, 3)))
-    sizes = ndimage.sum(solid, labels, range(1, n + 1))
-    pile = labels == np.argsort(sizes)[-2] + 1     # вторая по величине — кучка, первая — Игоряша
-    ys, xs = np.nonzero(pile)
-    crop = cell[ys.min():ys.max() + 1, xs.min():xs.max() + 1].copy()
-    crop[~pile[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 3] = 0
-
-    sheet = np.zeros((CELL, CELL * len(PILE_WIDTHS), 4), np.uint8)
-    for i, w in enumerate(PILE_WIDTHS):
-        small = downscale(crop, w / crop.shape[1])
+    heaps = []
+    for c in slice_cells(src, cols, rows, per_row=True):
+        cell, _ = clean_cell(c, 0.0005)
+        ys, xs = np.nonzero(cell[..., 3] > 0)
+        heaps.append(cell[ys.min():ys.max() + 1, xs.min():xs.max() + 1])
+    scale = HEAP_MAX_W / heaps[-1].shape[1]
+    sheet = np.zeros((CELL, CELL * len(heaps), 4), np.uint8)
+    for i, heap in enumerate(heaps):
+        small = downscale(heap, scale)
         h, w = small.shape[:2]
-        x, y = i * CELL + PILE_ANCHOR[0] - w, PILE_ANCHOR[1] - h
+        x, y = i * CELL + HEAP_ANCHOR[0] - w // 2, HEAP_ANCHOR[1] - h
         sheet[y:y + h, x:x + w] = small
     Image.fromarray(sheet).save(OUT / "pile.png", optimize=True)
-    return {"file": "sprites/pile.png", "cell": CELL, "cols": len(PILE_WIDTHS), "rows": 1,
-            "frames": len(PILE_WIDTHS), "scale": "widths " + ",".join(map(str, PILE_WIDTHS))}
+    return {"file": "sprites/pile.png", "cell": CELL, "cols": len(heaps), "rows": 1,
+            "frames": len(heaps), "scale": round(scale, 4)}
 
 
 def main():
@@ -413,7 +446,7 @@ def main():
     if room.size != (CELL, CELL):
         room = room.resize((CELL, CELL), Image.LANCZOS)
     room.save(OUT / "room.png", optimize=True)
-    meta["pile"] = build_pile()
+    meta["pile"] = build_heap()
     (OUT / "sheets.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
     for name, m in meta.items():
         print(f"{name:8} {m['cols']}×{m['rows']}  scale {m['scale']}")

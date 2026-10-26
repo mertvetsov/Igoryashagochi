@@ -82,9 +82,9 @@
   "pile": {
     "file": "sprites/pile.png",
     "cell": 240,
-    "cols": 8,
+    "cols": 6,
     "rows": 1,
-    "frames": 8,
-    "scale": "widths 23,27,31,36,41,46,51,56"
+    "frames": 6,
+    "scale": 0.1378
   }
 }

@@ -1,5 +1,5 @@
 'use strict';
-const { CELL, sheets, animations, play, lighting, timeOfDay, commonPhrases } = window.IGORYASHA;
+const { CELL, sheets, animations, play, lighting, timeOfDay, commonPhrases, heapConfig } = window.IGORYASHA;
 const COMMON_SHARE = 0.35;   // доля коронных фраз среди реплик
 const $ = id => document.getElementById(id);
 const canvas = $('screen'), ctx = canvas.getContext('2d');
@@ -7,11 +7,10 @@ ctx.imageSmoothingEnabled = false;
 
 const assets = {};
 const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'walk', 'love', 'sick'];
-// Куча одна и растёт: кадр листа pile = размер, по кадру на каждый раз.
-const MAX_PILES = sheets.pile.frames;
 
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
-let last = 0, phrase = '', queueIndex = 0, piles = 0, events = [];
+let last = 0, phrase = '', queueIndex = 0, events = [];
+let heap = null, pooped = false;   // куча в углу (js/heap.js) и «уже сходил в этом показе»
 
 function addLog(text) {
   events = [text, ...events].slice(0, 6);
@@ -26,6 +25,7 @@ function setState(next, manual = false) {
   state = next;
   current = play(next);
   elapsed = 0;
+  pooped = false;
   phrase = pickPhrase(animations[next]);
   if (manual) auto = false;
   updateUI();
@@ -46,7 +46,7 @@ function updateUI() {
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on);
   });
-  $('poopCount').textContent = 'на полу: ' + piles;
+  $('poopCount').textContent = 'куча: ' + (heap ? heap.count : 0);
 }
 
 // Индекс шага анимации и время внутри него.
@@ -198,8 +198,15 @@ function draw() {
   drawBackground();
   if ($('grid').checked) drawGrid();
 
-  if (piles) drawTile('pile', piles - 1, 0);
+  // В момент натуги куча в углу плюхается и растёт.
+  if (a.poopsAt !== undefined && !pooped && f.frame >= a.poopsAt) {
+    pooped = true;
+    heap.add();
+    updateUI();
+  }
+  heap.drawPile();
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
+  heap.drawFx();
   const light = currentLight();
   applyLight(light);   // реплики — интерфейс, их не затемняем
   if ($('speech').checked && elapsed < 2600) drawSpeech();
@@ -212,7 +219,6 @@ function draw() {
 
 function complete() {
   const a = current;
-  if (a.leavesPile) piles = Math.min(MAX_PILES, piles + 1);
   if (a.next) return setState(a.next[Math.floor(Math.random() * a.next.length)]);
   if (auto && state === 'idle') setState(autoQueue[queueIndex++ % autoQueue.length]);
   else setState('idle');
@@ -223,6 +229,7 @@ function tick(now) {
   const dt = Math.min(100, now - last);
   last = now;
   if (!paused) {
+    heap.update(dt * speed);
     elapsed += dt * speed;
     if (elapsed >= current.duration) complete();
   }
@@ -247,7 +254,7 @@ function bindUI() {
   $('auto').onclick = () => { auto = !auto; updateUI(); };
   $('pause').onclick = () => { paused = !paused; updateUI(); };
   $('step').onclick = step;
-  $('clean').onclick = () => { piles = 0; updateUI(); addLog('Пол чистый. Пока.'); };
+  $('clean').onclick = () => { heap.clean(); updateUI(); addLog('Пол чистый. Пока.'); };
   $('speed').oninput = e => { speed = Number(e.target.value); $('speedValue').textContent = speed + '×'; };
   $('zoom').onchange = e => { canvas.style.width = Number(e.target.value) * CELL + 'px'; };
   document.addEventListener('keydown', e => {
@@ -268,6 +275,7 @@ function load(name, src) {
 
 Promise.all(Object.entries(sheets).map(([name, s]) => load(name, s.src)))
   .then(() => {
+    heap = window.Heap(ctx, assets.pile, { CELL, frames: sheets.pile.frames, ...heapConfig });
     ready = true;
     bindUI();
     setState('idle');
@@ -280,6 +288,6 @@ Promise.all(Object.entries(sheets).map(([name, s]) => load(name, s.src)))
 
 window.animationLab = {
   get state() { return state; }, get current() { return current; }, get ready() { return ready; },
-  get elapsed() { return elapsed; }, get piles() { return piles; },
+  get elapsed() { return elapsed; }, get piles() { return heap ? heap.count : 0; }, get heap() { return heap; },
   setState, step, animations,
 };

@@ -21,8 +21,8 @@
     tanks_lose: { src: 'assets/sprites/tanks_lose.png', cols: 6, frames: 24 },
     love:    { src: 'assets/sprites/love.png',    cols: 8, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
-    // куча растёт: кадр = размер (23…56 px в ширину), собирает build_sprites.py
-    pile:    { src: 'assets/sprites/pile.png', cols: 8, frames: 8 },
+    // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
+    pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
   };
 
   // Статика: дышит кадрами 0–5 и иногда моргает. Кадр k+BLINK — это кадр
@@ -151,9 +151,17 @@
       label: 'У него важное дело',
       sheet: 'poop',
       frames: seq(range(16), [500, 220, 220, 250, 300, 300, 300, 300, 400, 450, 400, 300, 250, 300, 300, 600]),
-      leavesPile: true,
+      poopsAt: 8,   // с этого кадра (натуга) куча в углу плюхается и растёт
       phrases: ['Отойдите на минутку.', 'Хинкал был лишний.', 'Ой вей, ну вы чего смотрите.'],
     },
+  };
+
+  // Куча в углу (js/heap.js). anchor — низ по центру, как HEAP_ANCHOR в build_sprites.py.
+  // Мухи и запах — с какого размера (1…6) и сколько мух на каждом.
+  const heapConfig = {
+    anchor: [42, 198],
+    flies: { from: 4, count: [0, 0, 0, 2, 3, 5] },
+    stink: { from: 5 },
   };
 
   // Коронное Игоряши — иногда вместо реплики к действию.
@@ -194,5 +202,5 @@
     return { ...a, name, frames, duration: frames.reduce((n, f) => n + f.ms, 0) };
   }
 
-  window.IGORYASHA = { CELL: 240, sheets, animations, play, lighting, timeOfDay, commonPhrases };
+  window.IGORYASHA = { CELL: 240, sheets, animations, play, lighting, timeOfDay, commonPhrases, heapConfig };
 })();
