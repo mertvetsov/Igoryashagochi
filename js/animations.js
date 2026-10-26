@@ -136,7 +136,8 @@
       label: 'Затащил катку',
       sheet: 'tanks_win',
       frames: seq(winSeq, winMs),
-      phrases: ['Изи катка!', 'Тащу!', 'Ну шо, видали?!'],
+      phrases: ['Ахаха, то есть мяу!', 'Лох и чичикака!'],
+      ownPhrasesOnly: true,   // победный крик — без коронных «ой вей»
     },
     tanks_lose: {
       group: 'tanks',

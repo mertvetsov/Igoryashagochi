@@ -100,7 +100,7 @@ function drawGrid() {
 
 // Реплика своя для действия, но иногда Игоряша просто выдаёт коронное.
 function pickPhrase(a) {
-  const pool = Math.random() < COMMON_SHARE ? commonPhrases : a.phrases;
+  const pool = !a.ownPhrasesOnly && Math.random() < COMMON_SHARE ? commonPhrases : a.phrases;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
