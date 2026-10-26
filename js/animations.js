@@ -20,6 +20,7 @@
     tanks_win:  { src: 'assets/sprites/tanks_win.png',  cols: 6, frames: 24 },
     tanks_lose: { src: 'assets/sprites/tanks_lose.png', cols: 6, frames: 24 },
     love:    { src: 'assets/sprites/love.png',    cols: 8, frames: 24 },
+    sleep:   { src: 'assets/sprites/sleep.png',   cols: 6, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -74,6 +75,13 @@
   const loveMs = [500, 300, 350, 400, 500, 350, 450, 350,
                   ...loveLoopMs, ...loveLoopMs, ...loveLoopMs,
                   450, 300, 250, 350, 350, 400, 400, 600];
+  // Сон: устаёт и ложится (0–7), спит и храпит 8–15 четыре круга, просыпается (16–23).
+  const sleepLoop = range(8).map(i => i + 8);
+  const sleepLoopMs = [320, 300, 360, 420, 300, 300, 360, 420];
+  const sleepSeq = [...range(8), ...sleepLoop, ...sleepLoop, ...sleepLoop, ...sleepLoop, ...range(8).map(i => i + 16)];
+  const sleepMs = [500, 450, 650, 350, 350, 400, 400, 500,
+                   ...sleepLoopMs, ...sleepLoopMs, ...sleepLoopMs, ...sleepLoopMs,
+                   400, 650, 350, 500, 350, 350, 400, 600];
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -146,6 +154,14 @@
       // кукла лопается
       shake: { frames: [17], ms: 200, path: SHAKE },
       phrases: ['Ты у меня одна.', 'Только не лопни.', 'Ой, ну шо ты как неродная.'],
+    },
+    sleep: {
+      label: 'Спит. Храпит.',
+      sheet: 'sleep',
+      frames: seq(sleepSeq, sleepMs),
+      // пока лежит — от головы всплывают «z» (x, y — где голова, кадры — когда)
+      zzz: { frames: sleepLoop, x: 86, y: 140 },
+      phrases: ['Чёт я устал…', 'Ой вей, спать.', 'Разбудите к хинкалу.'],
     },
     poop: {
       label: 'У него важное дело',

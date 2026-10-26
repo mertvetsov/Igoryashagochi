@@ -6,7 +6,7 @@ const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const assets = {};
-const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'walk', 'love', 'sick'];
+const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 'love', 'sick'];
 
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
 let last = 0, phrase = '', queueIndex = 0, events = [];
@@ -152,6 +152,21 @@ function shakeOffset(a, f) {
   return s.path[Math.floor(f.local / s.ms * s.path.length)];
 }
 
+// «z z z» во сне: три буквы по очереди всплывают от головы вправо-вверх,
+// растут и тают. Время — от начала анимации, поэтому работает и покадрово.
+const ZZZ_MS = 1800;
+function drawZzz(z, t) {
+  ctx.textAlign = 'center';
+  for (let i = 0; i < 3; i++) {
+    const k = (t / ZZZ_MS + i / 3) % 1;
+    const size = 8 + Math.round(k * 6);
+    ctx.font = `bold ${size}px monospace`;
+    ctx.fillStyle = `rgba(238,242,250,${(Math.min(1, k * 4) * (1 - k)).toFixed(2)})`;
+    ctx.fillText('z', z.x + k * 22 + 3 * Math.sin(k * 9 + i), z.y - k * 34);
+  }
+  ctx.textAlign = 'left';
+}
+
 // Карта освещения на каждое время суток: считается один раз, потом
 // каждый кадр просто умножается на неё (на устройстве — то же умножение по таблице).
 const lightMaps = {};
@@ -208,7 +223,8 @@ function draw() {
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
   heap.drawFx();
   const light = currentLight();
-  applyLight(light);   // реплики — интерфейс, их не затемняем
+  applyLight(light);   // реплики и «z» — поверх света, чтобы читались и ночью
+  if (a.zzz && a.zzz.frames.includes(f.frame)) drawZzz(a.zzz, elapsed);
   if ($('speech').checked && elapsed < 2600) drawSpeech();
   ctx.restore();
 

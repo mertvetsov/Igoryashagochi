@@ -51,6 +51,8 @@ SHEETS = {
     "tanks": ("tanks.png", 6, 4, 0, {"min_blob": 0.001}),
     "tanks_win": ("tanks_win.png", 6, 4, 23, {"min_blob": 0.001}),
     "tanks_lose": ("tanks_lose.png", 6, 4, 23, {"min_blob": 0.0005}),
+    # устаёт и ложится 0–7, спит и храпит 8–15 (цикл), встаёт 16–23
+    "sleep": ("sleep.png", 6, 4, 0),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
