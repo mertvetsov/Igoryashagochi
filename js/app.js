@@ -188,7 +188,7 @@ function load(name, src) {
     const im = new Image();
     im.onload = () => { assets[name] = im; resolve(); };
     im.onerror = () => reject(new Error('Не удалось загрузить ' + src));
-    im.src = src;
+    im.src = src + '?v=' + window.BUILD;
   });
 }
 

@@ -14,6 +14,9 @@
 <div class="card settings"><label>Скорость <span class="row"><input id="speed" type="range" min="0.25" max="2" step="0.25" value="1"><output id="speedValue">1×</output></span></label><label>Фон<select id="background"><option value="room">Комната</option><option value="gray">Серый</option><option value="light">Светлый</option><option value="dark">Тёмный</option><option value="checker">Прозрачность</option></select></label><label>Размер экрана<select id="zoom"><option value="1">240 px · 1×</option><option value="1.5" selected>360 px · 1.5×</option><option value="2">480 px · 2×</option></select></label><label>Сетка и линия пола<input id="grid" type="checkbox"></label><label>Реплики<input id="speech" type="checkbox" checked></label><label>Тряска экрана<input id="shake" type="checkbox" checked></label><div class="details"><span id="frame">кадр —</span><span id="poopCount">на полу: 0</span></div></div>
 <p class="hint">Спрайтшиты — PNG из <code>assets/sprites/</code>, собираются из <code>source/</code> скриптом <code>tools/build_sprites.py</code>. Кадр 240×240, ноги на линии пола. Кнопка действия отключает автожизнь.</p></aside></div>
 <section class="log"><div class="label">Последние события</div><div class="log-list" id="log"></div></section><footer><span>Прототип анимаций · PNG-спрайтшиты</span><span>Пробел — пауза · → — кадр</span></footer>
-</main><script src="js/animations.js"></script>
-<script src="js/app.js"></script>
+</main><!-- Метка версии подменяется на хэш коммита при деплое (.github/workflows/pages.yml),
+     чтобы браузер не смешивал свежий index.html со старыми скриптами из кэша -->
+<script>window.BUILD = '__BUILD__';</script>
+<script src="js/animations.js?v=__BUILD__"></script>
+<script src="js/app.js?v=__BUILD__"></script>
 </body></html>
