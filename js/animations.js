@@ -21,7 +21,8 @@
     tanks_lose: { src: 'assets/sprites/tanks_lose.png', cols: 6, frames: 24 },
     love:    { src: 'assets/sprites/love.png',    cols: 8, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
-    pile:    { src: 'assets/sprites/pile.png' },
+    // куча растёт: кадр = размер (23…56 px в ширину), собирает build_sprites.py
+    pile:    { src: 'assets/sprites/pile.png', cols: 8, frames: 8 },
   };
 
   // Статика: дышит кадрами 0–5 и иногда моргает. Кадр k+BLINK — это кадр

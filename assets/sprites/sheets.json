@@ -78,5 +78,13 @@
     "rows": 3,
     "frames": 24,
     "scale": 0.5957
+  },
+  "pile": {
+    "file": "sprites/pile.png",
+    "cell": 240,
+    "cols": 8,
+    "rows": 1,
+    "frames": 8,
+    "scale": "widths 23,27,31,36,41,46,51,56"
   }
 }

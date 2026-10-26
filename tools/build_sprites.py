@@ -374,6 +374,37 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
             "frames": cols * rows, "scale": round(scale, 4)}
 
 
+# Куча растёт: одна и та же кучка в PILE_WIDTHS размерах, правый нижний
+# угол прижат к ноге Игоряши (PILE_ANCHOR), растёт влево и вверх.
+# Берётся из крупного исходника «посрать», а не растягивается из 23 px.
+PILE_FROM = ("poop.png", 4, 4, 13)
+PILE_WIDTHS = [23, 27, 31, 36, 41, 46, 51, 56]
+PILE_ANCHOR = (84, 196)
+
+
+def build_pile():
+    file, cols, rows, frame = PILE_FROM
+    src = np.array(Image.open(SRC / file).convert("RGBA"))
+    cell, _ = clean_cell(list(slice_cells(src, cols, rows))[frame])
+    solid = cell[..., 3] > 0
+    labels, n = ndimage.label(solid, structure=np.ones((3, 3)))
+    sizes = ndimage.sum(solid, labels, range(1, n + 1))
+    pile = labels == np.argsort(sizes)[-2] + 1     # вторая по величине — кучка, первая — Игоряша
+    ys, xs = np.nonzero(pile)
+    crop = cell[ys.min():ys.max() + 1, xs.min():xs.max() + 1].copy()
+    crop[~pile[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 3] = 0
+
+    sheet = np.zeros((CELL, CELL * len(PILE_WIDTHS), 4), np.uint8)
+    for i, w in enumerate(PILE_WIDTHS):
+        small = downscale(crop, w / crop.shape[1])
+        h, w = small.shape[:2]
+        x, y = i * CELL + PILE_ANCHOR[0] - w, PILE_ANCHOR[1] - h
+        sheet[y:y + h, x:x + w] = small
+    Image.fromarray(sheet).save(OUT / "pile.png", optimize=True)
+    return {"file": "sprites/pile.png", "cell": CELL, "cols": len(PILE_WIDTHS), "rows": 1,
+            "frames": len(PILE_WIDTHS), "scale": "widths " + ",".join(map(str, PILE_WIDTHS))}
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     meta = {name: build_sheet(name, *args) for name, args in SHEETS.items()}
@@ -382,7 +413,7 @@ def main():
     if room.size != (CELL, CELL):
         room = room.resize((CELL, CELL), Image.LANCZOS)
     room.save(OUT / "room.png", optimize=True)
-    Image.open(SRC / "pile.png").save(OUT / "pile.png", optimize=True)
+    meta["pile"] = build_pile()
     (OUT / "sheets.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
     for name, m in meta.items():
         print(f"{name:8} {m['cols']}×{m['rows']}  scale {m['scale']}")
