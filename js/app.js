@@ -7,7 +7,11 @@ ctx.imageSmoothingEnabled = false;
 
 const assets = {};
 const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'walk', 'love', 'sick'];
-const MAX_PILES = 5;
+// Куча растёт горкой: порции ложатся рядами влево от Игоряши и вверх.
+// [dx, dy] — сдвиг спрайта кучки; первая — у его ноги, там, где её оставляет анимация.
+const HEAP = [[0, 0], [-15, 0], [-8, -10], [-30, 0], [-23, -10],
+              [-15, -20], [-45, 0], [-38, -10], [-30, -20], [-23, -30]];
+const MAX_PILES = HEAP.length;
 
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
 let last = 0, phrase = '', queueIndex = 0, piles = 0, events = [];
@@ -197,8 +201,10 @@ function draw() {
   drawBackground();
   if ($('grid').checked) drawGrid();
 
-  // Старые кучки отъезжают влево, свежая — в кадре самого спрайта.
-  for (let i = 0; i < piles; i++) ctx.drawImage(assets.pile, -(piles - 1 - i) * 8 - (a.leavesPile ? 8 : 0), 0);
+  // Пока гадит, свежая порция — в кадре спрайта на первом месте, старые — со второго.
+  const from = a.leavesPile ? 1 : 0;
+  const heap = HEAP.slice(from, Math.min(MAX_PILES, piles + from)).sort((p, q) => q[1] - p[1]);
+  for (const [dx, dy] of heap) ctx.drawImage(assets.pile, dx, dy);
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
   const light = currentLight();
   applyLight(light);   // реплики — интерфейс, их не затемняем
