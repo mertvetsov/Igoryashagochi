@@ -9,7 +9,8 @@
   const range = n => Array.from({ length: n }, (_, i) => i);
 
   const sheets = {
-    scratch: { src: 'assets/sprites/scratch.png', cols: 4, frames: 16 },
+    // 0–5 дыхание, 6–11 те же кадры с закрытыми глазами, 12–23 чешет жопу
+    idle:    { src: 'assets/sprites/idle.png',    cols: 6, frames: 24 },
     hungry:  { src: 'assets/sprites/hungry.png',  cols: 4, frames: 16 },
     walk:    { src: 'assets/sprites/walk.png',    cols: 6, frames: 24 },
     poop:    { src: 'assets/sprites/poop.png',    cols: 4, frames: 16 },
@@ -22,8 +23,29 @@
     pile:    { src: 'assets/sprites/pile.png' },
   };
 
-  // Чешется: замах, три цикла чесания (кадры 8–11), возврат.
-  const scratchSeq = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 8, 9, 10, 11, 8, 9, 10, 11, 12, 13, 14, 15];
+  // Статика: дышит кадрами 0–5 и иногда моргает. Кадр k+BLINK — это кадр
+  // дыхания k с закрытыми глазами, поэтому моргнуть можно на любой фазе.
+  const BREATH = [400, 300, 300, 400, 300, 300];
+  const BLINK = 6, BLINK_MS = 100;
+  function idleFrames(rand = Math.random) {
+    const cycles = 3 + Math.floor(rand() * 3);   // 3–5 вдохов
+    const frames = [];
+    for (let c = 0; c < cycles; c++) BREATH.forEach((ms, k) => frames.push({ frame: k, ms }));
+    const blinks = rand() < 0.35 ? 2 : 1;
+    for (let b = 0; b < blinks; b++) {
+      const i = Math.floor(rand() * frames.length);
+      const k = frames[i].frame;
+      if (k >= BLINK) continue;
+      const blink = [{ frame: k + BLINK, ms: BLINK_MS }];
+      if (rand() < 0.25) blink.push({ frame: k, ms: 120 }, { frame: k + BLINK, ms: BLINK_MS });   // двойное
+      frames.splice(i + 1, 0, ...blink);
+    }
+    return frames;
+  }
+  // Чешет жопу: заводит руку (12–13), чешет кадрами 14–17 три раза, опускает руку (18–23).
+  const scratchLoop = [14, 15, 16, 17];
+  const scratchSeq = [12, 13, ...scratchLoop, ...scratchLoop, ...scratchLoop, 18, 19, 20, 21, 22, 23];
+  const scratchMs = [300, 220, ...Array(12).fill(130), 220, 220, 200, 220, 260, 500];
   // Голод: стучит кулаком в экран (кадры 4–7) два раза подряд, потом показывает на рот и живот.
   const hungrySeq = [0, 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
   const hungryMs = [600, 200, 200, 300, 160, 140, 160, 140, 160, 140, 160, 260,
@@ -52,14 +74,14 @@
   const animations = {
     idle: {
       label: 'Стоит. Подозрительно спокойно.',
-      sheet: 'scratch',
-      frames: seq([0, 1, 2, 3, 0], [1600, 700, 100, 1400, 1200]),
+      sheet: 'idle',
+      build: idleFrames,   // кадры собираются заново на каждый показ
       phrases: ['Ну чо вы смотрите?', 'О_О', 'Я всё контролирую.'],
     },
     scratch: {
       label: 'Чешет жопу',
-      sheet: 'scratch',
-      frames: seq(scratchSeq, scratchSeq.map((_, i) => (i === 0 ? 400 : i === 23 ? 600 : 130))),
+      sheet: 'idle',
+      frames: seq(scratchSeq, scratchMs),
       phrases: ['Задумался.', 'Дела житейские.'],
     },
     walk: {
@@ -125,7 +147,12 @@
     },
   };
 
-  for (const a of Object.values(animations)) a.duration = a.frames.reduce((n, f) => n + f.ms, 0);
+  // Показ анимации: собранные кадры и их общая длительность.
+  function play(name) {
+    const a = animations[name];
+    const frames = a.build ? a.build() : a.frames;
+    return { ...a, name, frames, duration: frames.reduce((n, f) => n + f.ms, 0) };
+  }
 
-  window.IGORYASHA = { CELL: 240, sheets, animations };
+  window.IGORYASHA = { CELL: 240, sheets, animations, play };
 })();

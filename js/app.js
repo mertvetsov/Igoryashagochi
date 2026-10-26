@@ -1,5 +1,5 @@
 'use strict';
-const { CELL, sheets, animations } = window.IGORYASHA;
+const { CELL, sheets, animations, play } = window.IGORYASHA;
 const $ = id => document.getElementById(id);
 const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
@@ -8,7 +8,7 @@ const assets = {};
 const autoQueue = ['scratch', 'walk', 'hungry', 'eat', 'poop', 'tanks', 'walk', 'sick', 'scratch'];
 const MAX_PILES = 5;
 
-let state = 'idle', elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
+let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, speed = 1, ready = false;
 let last = 0, phrase = '', queueIndex = 0, piles = 0, events = [];
 
 function addLog(text) {
@@ -22,6 +22,7 @@ function addLog(text) {
 
 function setState(next, manual = false) {
   state = next;
+  current = play(next);
   elapsed = 0;
   const p = animations[next].phrases;
   phrase = p[Math.floor(Math.random() * p.length)];
@@ -49,7 +50,7 @@ function updateUI() {
 
 // Индекс шага анимации и время внутри него.
 function frameAt(t) {
-  const frames = animations[state].frames;
+  const frames = current.frames;
   let start = 0;
   for (let i = 0; i < frames.length; i++) {
     if (t < start + frames[i].ms) return { index: i, frame: frames[i].frame, local: t - start };
@@ -117,7 +118,7 @@ function shakeOffset(a, f) {
 }
 
 function draw() {
-  const a = animations[state], f = frameAt(elapsed);
+  const a = current, f = frameAt(elapsed);
   const [sx, sy] = shakeOffset(a, f);
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, CELL, CELL);
@@ -137,7 +138,7 @@ function draw() {
 }
 
 function complete() {
-  const a = animations[state];
+  const a = current;
   if (a.leavesPile) piles = Math.min(MAX_PILES, piles + 1);
   if (a.next) return setState(a.next[Math.floor(Math.random() * a.next.length)]);
   if (auto && state === 'idle') setState(autoQueue[queueIndex++ % autoQueue.length]);
@@ -150,7 +151,7 @@ function tick(now) {
   last = now;
   if (!paused) {
     elapsed += dt * speed;
-    if (elapsed >= animations[state].duration) complete();
+    if (elapsed >= current.duration) complete();
   }
   draw();
   requestAnimationFrame(tick);
@@ -159,8 +160,8 @@ function tick(now) {
 function step() {
   paused = true;
   const f = frameAt(elapsed);
-  elapsed += animations[state].frames[f.index].ms - f.local + 0.1;
-  if (elapsed >= animations[state].duration) complete();
+  elapsed += current.frames[f.index].ms - f.local + 0.1;
+  if (elapsed >= current.duration) complete();
   updateUI();
   draw();
 }
@@ -205,7 +206,7 @@ Promise.all(Object.entries(sheets).map(([name, s]) => load(name, s.src)))
   });
 
 window.animationLab = {
-  get state() { return state; }, get ready() { return ready; },
+  get state() { return state; }, get current() { return current; }, get ready() { return ready; },
   get elapsed() { return elapsed; }, get piles() { return piles; },
   setState, step, animations,
 };

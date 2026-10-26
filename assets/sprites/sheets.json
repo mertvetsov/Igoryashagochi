@@ -1,11 +1,11 @@
 {
-  "scratch": {
-    "file": "sprites/scratch.png",
+  "idle": {
+    "file": "sprites/idle.png",
     "cell": 240,
-    "cols": 4,
+    "cols": 6,
     "rows": 4,
-    "frames": 16,
-    "scale": 0.765
+    "frames": 24,
+    "scale": 0.6452
   },
   "hungry": {
     "file": "sprites/hungry.png",
