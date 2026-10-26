@@ -164,6 +164,30 @@
     },
   };
 
+  // Время суток. Свет накладывается на весь кадр — комнату и Игоряшу:
+  // кадр умножается на карту освещения = общий тон + пятна от источников.
+  // Источник: x, y, радиус, цвет «r,g,b», сила 0–1. День — без изменений.
+  const lighting = {
+    morning: {
+      label: 'Утро',
+      tint: [226, 192, 166],
+      lights: [{ x: 217, y: 55, r: 170, color: [255, 236, 200], power: 0.9 }],   // солнце из окна
+    },
+    day: { label: 'День', tint: null, lights: [] },
+    night: {
+      label: 'Ночь',
+      tint: [52, 62, 104],
+      lights: [
+        { x: 48, y: 82, r: 135, color: [255, 196, 120], power: 0.85 },   // торшер
+        { x: 48, y: 80, r: 22, color: [255, 236, 180], power: 0.7 },     // сам абажур
+        { x: 217, y: 55, r: 60, color: [90, 110, 160], power: 0.5 },     // фонари за окном
+      ],
+    },
+  };
+  // Утро 5–11, день 11–19, ночь — остальное.
+  const timeOfDay = (hour = new Date().getHours()) =>
+    hour >= 5 && hour < 11 ? 'morning' : hour >= 11 && hour < 19 ? 'day' : 'night';
+
   // Показ анимации: собранные кадры и их общая длительность.
   function play(name) {
     const a = animations[name];
@@ -171,5 +195,5 @@
     return { ...a, name, frames, duration: frames.reduce((n, f) => n + f.ms, 0) };
   }
 
-  window.IGORYASHA = { CELL: 240, sheets, animations, play };
+  window.IGORYASHA = { CELL: 240, sheets, animations, play, lighting, timeOfDay };
 })();

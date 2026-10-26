@@ -1,5 +1,5 @@
 'use strict';
-const { CELL, sheets, animations, play } = window.IGORYASHA;
+const { CELL, sheets, animations, play, lighting, timeOfDay } = window.IGORYASHA;
 const $ = id => document.getElementById(id);
 const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
@@ -117,6 +117,42 @@ function shakeOffset(a, f) {
   return s.path[Math.floor(f.local / s.ms * s.path.length)];
 }
 
+// Карта освещения на каждое время суток: считается один раз, потом
+// каждый кадр просто умножается на неё (на устройстве — то же умножение по таблице).
+const lightMaps = {};
+function lightMap(name) {
+  if (name in lightMaps) return lightMaps[name];
+  const L = lighting[name];
+  if (!L.tint) return (lightMaps[name] = null);
+  const map = document.createElement('canvas');
+  map.width = map.height = CELL;
+  const m = map.getContext('2d');
+  m.fillStyle = `rgb(${L.tint})`;
+  m.fillRect(0, 0, CELL, CELL);
+  m.globalCompositeOperation = 'lighter';
+  for (const l of L.lights) {
+    const g = m.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+    g.addColorStop(0, `rgba(${l.color},${l.power})`);
+    g.addColorStop(1, `rgba(${l.color},0)`);
+    m.fillStyle = g;
+    m.fillRect(0, 0, CELL, CELL);
+  }
+  return (lightMaps[name] = map);
+}
+
+function currentLight() {
+  const v = $('light').value;
+  return v === 'auto' ? timeOfDay() : v;
+}
+
+function applyLight(name) {
+  const map = lightMap(name);
+  if (!map) return;
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(map, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 function draw() {
   const a = current, f = frameAt(elapsed);
   const [sx, sy] = shakeOffset(a, f);
@@ -130,9 +166,12 @@ function draw() {
   // Старые кучки отъезжают влево, свежая — в кадре самого спрайта.
   for (let i = 0; i < piles; i++) ctx.drawImage(assets.pile, -(piles - 1 - i) * 8 - (a.leavesPile ? 8 : 0), 0);
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
+  const light = currentLight();
+  applyLight(light);   // реплики — интерфейс, их не затемняем
   if ($('speech').checked && elapsed < 2600) drawSpeech();
   ctx.restore();
 
+  $('lightNow').textContent = lighting[light].label.toLowerCase();
   $('frame').textContent = `кадр ${String(f.frame + 1).padStart(2, '0')} / ${sheets[a.sheet].frames}`;
   $('progress').style.width = Math.min(100, elapsed / a.duration * 100) + '%';
 }
