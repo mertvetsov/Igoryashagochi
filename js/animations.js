@@ -19,6 +19,7 @@
     tanks:      { src: 'assets/sprites/tanks.png',      cols: 6, frames: 24 },
     tanks_win:  { src: 'assets/sprites/tanks_win.png',  cols: 6, frames: 24 },
     tanks_lose: { src: 'assets/sprites/tanks_lose.png', cols: 6, frames: 24 },
+    love:    { src: 'assets/sprites/love.png',    cols: 8, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     pile:    { src: 'assets/sprites/pile.png' },
   };
@@ -65,6 +66,14 @@
                  220, 220, 220, 220, 220, 300, 300, 300, 300, 250, 300, 300, 400, 700];
   const loseMs = [200, 200, 250, 300, 250, 250, 250, 250, 300, 350, 400, 350,
                   250, 250, 350, 250, 450, 350, 350, 500, 350, 350, 350, 700];
+  // Акт любви: достаёт куклу и надувает (0–7), обнимашки 8–15 по кругу,
+  // кукла сдувается и лопается (16–17), испуг с прыжком и отходняк (18–23).
+  const loveLoop = range(8).map(i => i + 8);
+  const loveLoopMs = [240, 240, 380, 240, 240, 380, 240, 240];
+  const loveSeq = [...range(8), ...loveLoop, ...loveLoop, ...loveLoop, ...range(8).map(i => i + 16)];
+  const loveMs = [500, 300, 350, 400, 500, 350, 450, 350,
+                  ...loveLoopMs, ...loveLoopMs, ...loveLoopMs,
+                  450, 300, 250, 350, 350, 400, 400, 600];
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -134,6 +143,14 @@
       // бьёт ноутом об пол и топчет обломки
       shake: { frames: [11, 14], ms: 180, path: SHAKE },
       phrases: ['Это всё лаги!', 'Ноут виноват.'],
+    },
+    love: {
+      label: 'Акт любви',
+      sheet: 'love',
+      frames: seq(loveSeq, loveMs),
+      // кукла лопается
+      shake: { frames: [17], ms: 200, path: SHAKE },
+      phrases: ['Ты у меня одна.', 'Только не лопни.'],
     },
     poop: {
       label: 'У него важное дело',

@@ -28,7 +28,10 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 # name: (файл, колонки, ряды, индекс эталонного стоячего кадра[, опции])
 # опции: min_blob — порог шума; backdrop — снять серые остатки фона;
 #        register — выровнять кадры по ногам эталонного (для стоячих листов);
-#        native — лист уже нарисован в ячейках 240 px: не масштабируем и не двигаем
+#        native — лист уже нарисован в ячейках 240 px: не масштабируем и не двигаем;
+#        per_row — резать колонки в каждом ряду отдельно, по середине широких промежутков;
+#        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
+#        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки)
 SHEETS = {
     # уже в игровом формате (240 px, ноги на полу): дыхание 0–15,
     # моргание 16–23, чешет жопу 24–39 — только чистим
@@ -43,6 +46,9 @@ SHEETS = {
     "tanks": ("tanks.png", 6, 4, 0, {"min_blob": 0.001}),
     "tanks_win": ("tanks_win.png", 6, 4, 23, {"min_blob": 0.001}),
     "tanks_lose": ("tanks_lose.png", 6, 4, 23, {"min_blob": 0.0005}),
+    # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
+    "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
+                                    "anchor": "pants", "row_floor": True}),
 }
 REGISTER_BAND = 0.3   # нижняя доля тела (голени и ступни), по которой совмещаем кадры
 REGISTER_REACH = 8    # поиск сдвига ±px в исходном разрешении
@@ -117,17 +123,20 @@ def clean_cell(cell, min_blob=MIN_BLOB, backdrop=False):
     return cell, (labels == body) & ~vomit_mask(cell)
 
 
-def slice_cells(img, cols, rows):
-    h, w = img.shape[:2]
+def slice_cells(img, cols, rows, per_row=False):
     solid = img[..., 3] >= ALPHA_CUT
+    ys = cut_lines(solid.sum(axis=1), rows, widest=per_row)
     xs = cut_lines(solid.sum(axis=0), cols)
-    ys = cut_lines(solid.sum(axis=1), rows)
-    for i in range(cols * rows):
-        c, r = i % cols, i // cols
-        yield img[ys[r]:ys[r + 1], xs[c]:xs[c + 1]]
+    for r in range(rows):
+        band = slice(ys[r], ys[r + 1])
+        if per_row:
+            # реквизит заходит в соседние ячейки в каждом ряду по-разному
+            xs = cut_lines(solid[band].sum(axis=0), cols, widest=True)
+        for c in range(cols):
+            yield img[band, xs[c]:xs[c + 1]]
 
 
-def cut_lines(profile, n):
+def cut_lines(profile, n, widest=False):
     """Границы ячеек. Генератор не всегда держит ровную сетку: если линия
     равномерной сетки режет персонажа, сдвигаем её на ближайшую пустую."""
     size = len(profile)
@@ -136,8 +145,22 @@ def cut_lines(profile, n):
         nominal = round(k * size / n)
         reach = size // n // 4
         lo, hi = nominal - reach, nominal + reach
-        best = min(range(lo, hi + 1), key=lambda y: (profile[y], abs(y - nominal)))
-        lines.append(best)
+        if not widest:
+            lines.append(min(range(lo, hi + 1), key=lambda y: (profile[y], abs(y - nominal))))
+            continue
+        window = profile[lo:hi + 1]
+        # из самых пустых линий берём середину самого широкого промежутка:
+        # узкая щель может оказаться между рукой и телом одного кадра
+        low = window == window.min()
+        runs, start = [], None
+        for j, v in enumerate(list(low) + [False]):
+            if v and start is None:
+                start = j
+            elif not v and start is not None:
+                runs.append((j - start, -abs((start + j - 1) // 2 + lo - nominal), start, j - 1))
+                start = None
+        _, _, a, b = max(runs)
+        lines.append(lo + (a + b) // 2)
     return lines + [size]
 
 
@@ -195,6 +218,12 @@ def register(cells, ref):
     return out
 
 
+def pants_mask(tile):
+    """Тёмно-синие треники — есть только у Игоряши, не у реквизита."""
+    c = tile[..., :3].astype(int)
+    return (tile[..., 3] > 0) & (c[..., 2] - c[..., 0] > 12) & (c.mean(axis=-1) < 90)
+
+
 def place(small, body_small):
     """Ступни на пол, центр масс тела — на якорь; кучки едут вместе с телом."""
     bys, bxs = np.nonzero(body_small)
@@ -231,7 +260,7 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
     if opts.get("native"):
         return build_native(name, src, cols, rows, opts)
     cells = [clean_cell(c, opts.get("min_blob", MIN_BLOB), opts.get("backdrop", False))
-             for c in slice_cells(src, cols, rows)]
+             for c in slice_cells(src, cols, rows, opts.get("per_row", False))]
     if opts.get("register"):
         cells = register(cells, ref)
 
@@ -242,13 +271,27 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         small = downscale(cell, scale)
         return small, np.array(Image.fromarray(body).resize(small.shape[1::-1], Image.NEAREST))
 
+    shrunk = [shrink(c, b) for c, b in cells]
     # выровненные кадры ставим все по эталонному, чтобы не сбить совмещение
-    fixed = place(*shrink(*cells[ref])) if opts.get("register") else None
+    fixed = place(*shrunk[ref]) if opts.get("register") else None
+    if opts.get("anchor") == "pants":
+        # Игоряша держит реквизит (куклу) — центр всей фигуры уезжает к нему,
+        # поэтому центруем по штанам с поправкой, снятой с эталонного кадра
+        s0, b0 = shrunk[ref]
+        lean = np.nonzero(b0)[1].mean() - np.nonzero(pants_mask(s0))[1].mean()
+    if opts.get("row_floor"):
+        # один сдвиг на весь ряд: пол у генератора общий для ряда, и так
+        # сохраняются прыжки, которые иначе прижало бы к полу
+        bottoms = [np.nonzero(b)[0].max() for _, b in shrunk]
+        row_bottom = [max(bottoms[r * cols:(r + 1) * cols]) for r in range(rows)]
 
     tiles = []
-    for cell, body in cells:
-        small, body_small = shrink(cell, body)
+    for i, (small, body_small) in enumerate(shrunk):
         dx, dy = fixed or place(small, body_small)
+        if opts.get("anchor") == "pants":
+            dx = ANCHOR_X - round(np.nonzero(pants_mask(small))[1].mean() + lean)
+        if opts.get("row_floor"):
+            dy = FLOOR - row_bottom[i // cols]
         h, w = small.shape[:2]
         tile = np.zeros((CELL, CELL, 4), np.uint8)
         sx0, sy0 = max(0, -dx), max(0, -dy)
