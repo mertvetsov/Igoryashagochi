@@ -37,7 +37,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки);
 #        cut_pile — вырезать кучку у ноги (лист «посрать»);
 #        figures — сетка неровная: резать по отдельным фигурам в каждом ряду;
-#        drop_white — убрать оторванные белые крошки (остатки фона)
+#        drop_white — убрать оторванные белые крошки (остатки фона);
+#        snap_floor — (с register) по вертикали ставить каждый кадр на пол отдельно
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -59,7 +60,7 @@ SHEETS = {
     # истерика: грустит 0–5, ревёт и машет руками 6–17, вытирает слёзы и
     # успокаивается 18–23; руки размахивает широко — колонки режем по рядам
     "sad": ("sad.png", 6, 4, 0, {"register": True, "per_row": True, "min_blob": 0.0005,
-                                 "drop_white": True}),
+                                 "drop_white": True, "snap_floor": True}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
@@ -438,6 +439,8 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
             dx = ANCHOR_X - round(np.nonzero(pants_mask(small))[1].mean() + lean)
         if opts.get("row_floor"):
             dy = FLOOR - row_bottom[i // cols]
+        if opts.get("snap_floor"):
+            dy = FLOOR - np.nonzero(body_small)[0].max()   # по x — совмещение, по y — каждый на пол
         h, w = small.shape[:2]
         tile = np.zeros((CELL, CELL, 4), np.uint8)
         sx0, sy0 = max(0, -dx), max(0, -dy)
