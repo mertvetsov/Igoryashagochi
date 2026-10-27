@@ -6,11 +6,13 @@ const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const assets = {};
-const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 'sad', 'love', 'sick'];
+const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 'sad', 'love', 'sick', 'pill'];
 
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, ready = false;
 let speed = Number($('speed').value);   // по умолчанию 1.75× — задано в index.html
-let last = 0, phrase = '', queueIndex = 0, events = [];
+let last = 0, phrase = '', speechAt = 0, queueIndex = 0, events = [];
+let ill = false;   // заболел — можно дать таблетку (сбрасывается, когда съел)
+let said = false;  // реплика a.say уже прозвучала в этом показе
 let heap = null, pooped = false;   // куча в углу (js/heap.js) и «уже сходил в этом показе»
 let cracks = null, lastStep = -1;  // трещины на стекле (js/cracks.js) и шаг, на котором уже ударил
 
@@ -31,6 +33,8 @@ function setState(next, manual = false) {
   lastStep = -1;
   if (current.cracks && cracks) cracks.reset();
   phrase = pickPhrase(animations[next]);
+  speechAt = 0;
+  said = false;
   if (manual) auto = false;
   updateUI();
   addLog(animations[next].label);
@@ -49,6 +53,7 @@ function updateUI() {
     const on = b.dataset.action === (animations[state].group || state);
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on);
+    if (animations[b.dataset.action].needsIll) b.disabled = !ill && !on;
   });
   $('poopCount').textContent = 'куча: ' + (heap ? heap.count : 0);
 }
@@ -269,13 +274,20 @@ function draw() {
     heap.add();
     updateUI();
   }
+  // Реплика посреди анимации (например, «Я на жёстких бизиках!» после таблетки).
+  if (a.say && !said && f.frame === a.say.frame) {
+    said = true;
+    phrase = a.say.text;
+    speechAt = elapsed;
+  }
   heap.drawPile();
+  if (a.drop) drawDrop(a.drop, f);
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
   heap.drawFx();
   const light = currentLight();
   applyLight(light, a, f);   // реплики и «z» — поверх света, чтобы читались и ночью
   if (a.zzz && a.zzz.frames.includes(f.frame)) drawZzz(a.zzz, elapsed);
-  if ($('speech').checked && elapsed < 2600) drawSpeech();
+  if ($('speech').checked && elapsed - speechAt < 2600) drawSpeech();
   ctx.restore();
   cracks.draw();   // стекло не трясётся вместе с картинкой и лежит поверх всего
 
@@ -286,9 +298,34 @@ function draw() {
 
 function complete() {
   const a = current;
+  if (a.makesIll) ill = true;
+  if (a.needsIll) ill = false;
   if (a.next) return setState(a.next[Math.floor(Math.random() * a.next.length)]);
-  if (auto && state === 'idle') setState(autoQueue[queueIndex++ % autoQueue.length]);
-  else setState('idle');
+  if (auto && state === 'idle') {
+    let next = autoQueue[queueIndex++ % autoQueue.length];
+    if (animations[next].needsIll && !ill) next = autoQueue[queueIndex++ % autoQueue.length];
+    return setState(next);
+  }
+  setState('idle');
+}
+
+// Предмет падает сверху ровно в точку, где он лежит в кадре, отскакивает
+// и лежит, пока Игоряша его не поднимет. Время — внутри первого шага анимации.
+function drawDrop(d, f) {
+  if (f.index > d.until) return;
+  const img = assets[d.sprite];
+  let y = d.y;
+  if (f.index === 0) {
+    const t = f.local;
+    if (t < d.fallMs) {
+      const k = t / d.fallMs;
+      y = -img.height + (d.y + img.height) * k * k;             // падение с ускорением
+    } else if (t < d.fallMs + 220) {
+      const k = (t - d.fallMs) / 220;
+      y = d.y - Math.round(7 * Math.sin(Math.PI * k));          // отскок
+    }
+  }
+  ctx.drawImage(img, d.x, Math.round(y));
 }
 
 function tick(now) {

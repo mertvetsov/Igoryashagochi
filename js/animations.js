@@ -22,6 +22,8 @@
     love:    { src: 'assets/sprites/love.png',    cols: 8, frames: 24 },
     sleep:   { src: 'assets/sprites/sleep.png',   cols: 6, frames: 24 },
     sad:     { src: 'assets/sprites/sad.png',     cols: 6, frames: 24 },
+    pill:    { src: 'assets/sprites/pill.png',    cols: 4, frames: 16 },
+    pill_item: { src: 'assets/sprites/pill_item.png' },   // таблетка 11×7, падает сверху
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -91,6 +93,14 @@
   const sadSeq = [...range(6), ...sobLoop, ...sobLoop, ...range(6).map(i => i + 18)];
   const sadMs = [600, 450, 450, 400, 450, 450,
                  ...sobMs, ...sobMs, 450, 500, 450, 450, 500, 700];
+  // Таблетка: падает сверху (0), лежит (1), поднимает (2–3), смотрит (4–5), глотает
+  // (6–7 дважды), проглотил (8–9), «бизики» — кулаки (10), скачет 11→12→13 шесть раз, отходит (14–15).
+  const hop = [11, 12, 13];
+  const hopMs = [120, 150, 110];
+  const pillSeq = [0, 1, 2, 3, 4, 5, 6, 7, 6, 7, 8, 9, 10,
+                   ...hop, ...hop, ...hop, ...hop, ...hop, ...hop, 10, 13, 14, 15];
+  const pillMs = [1100, 500, 350, 450, 380, 380, 260, 260, 260, 260, 500, 600, 400,
+                  ...hopMs, ...hopMs, ...hopMs, ...hopMs, ...hopMs, ...hopMs, 300, 300, 500, 700];
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -131,6 +141,7 @@
       // зеленеет (0–5), согнулся и тошнит (6–17), отходит (18–23)
       frames: seq(range(24), [600, 300, 300, 350, 350, 450, 300, 250, 160, 160, 140, 140,
                               140, 160, 180, 300, 350, 400, 400, 350, 350, 350, 350, 600]),
+      makesIll: true,   // после этого можно дать таблетку
       phrases: ['Чёт мне нехорошо…', 'Похлёбка была несвежая.', 'Ой вей, помираю.', 'Ну ой… ну всё.'],
     },
     tanks: {
@@ -180,6 +191,18 @@
       sheet: 'sad',
       frames: seq(sadSeq, sadMs),
       phrases: ['Ой вей, никто меня не любит…', 'Ну ой… ну за шо?!', 'Хинкала нет, и жизни нет!', 'Да за шо мне это всё?!'],
+    },
+    pill: {
+      label: 'Съел таблетку. На бизиках.',
+      sheet: 'pill',
+      frames: seq(pillSeq, pillMs),
+      needsIll: true,   // только когда заболел
+      // таблетка падает сверху ровно туда, где лежит в кадре 2 (pill_item, см. build_sprites.py)
+      drop: { sprite: 'pill_item', x: 158, y: 192, fallMs: 600, until: 1 },
+      say: { frame: 10, text: 'Я на жёстких бизиках!' },
+      shake: { frames: [13], ms: 110, path: [[0, 2], [0, -1], [0, 1], [0, 0]] },   // приземления
+      phrases: ['О, таблеточка!', 'Шо это? Ну давай.'],
+      ownPhrasesOnly: true,
     },
     poop: {
       label: 'У него важное дело',

@@ -38,7 +38,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        cut_pile — вырезать кучку у ноги (лист «посрать»);
 #        figures — сетка неровная: резать по отдельным фигурам в каждом ряду;
 #        drop_white — убрать оторванные белые крошки (остатки фона);
-#        snap_floor — (с register) по вертикали ставить каждый кадр на пол отдельно
+#        snap_floor — (с register) по вертикали ставить каждый кадр на пол отдельно;
+#        item — вынуть предмет из кадра в отдельный спрайт (см. extract_item)
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -61,6 +62,11 @@ SHEETS = {
     # успокаивается 18–23; руки размахивает широко — колонки режем по рядам
     "sad": ("sad.png", 6, 4, 0, {"register": True, "per_row": True, "min_blob": 0.0005,
                                  "drop_white": True, "snap_floor": True}),
+    # таблетка: стоит 0, таблетка на полу 1, поднимает 2–3, глотает 4–8, бизики 9–15
+    # (кадр 12 — прыжок: ряд на пол одним сдвигом, чтобы он остался в воздухе)
+    # таблетку с пола (кадр 1) вынимаем в pill_item.png — движок роняет её сверху
+    "pill": ("pill.png", 4, 4, 0, {"per_row": True, "row_floor": True, "min_blob": 0.0003,
+                                   "item": {"frame": 1, "name": "pill_item"}}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
@@ -395,6 +401,23 @@ def build_native(name, src, cols, rows, opts):
             "frames": cols * rows, "scale": 1}
 
 
+def extract_item(tiles, frame, name):
+    """Вынуть отдельный предмет (самый крупный кусок, кроме Игоряши) из кадра
+    в свой маленький спрайт: движок рисует его сам — например, таблетка
+    падает сверху и ложится ровно туда, где она лежит в этом кадре."""
+    tile = tiles[frame]
+    solid = tile[..., 3] > 0
+    labels, n = ndimage.label(solid, structure=np.ones((3, 3)))
+    sizes = ndimage.sum(solid, labels, range(1, n + 1))
+    item = labels == np.argsort(sizes)[-2] + 1
+    ys, xs = np.nonzero(item)
+    crop = tile[ys.min():ys.max() + 1, xs.min():xs.max() + 1].copy()
+    crop[~item[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 3] = 0
+    Image.fromarray(crop).save(OUT / f"{name}.png", optimize=True)
+    tile[item] = 0
+    print(f"{name:8} {crop.shape[1]}×{crop.shape[0]} px, лежит в x={xs.min()} y={ys.min()}")
+
+
 def build_sheet(name, file, cols, rows, ref, opts=None):
     opts = opts or {}
     src = np.array(Image.open(SRC / file).convert("RGBA"))
@@ -451,6 +474,8 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
 
     if opts.get("blink"):
         bake_blink(tiles, **opts["blink"])
+    if opts.get("item"):
+        extract_item(tiles, **opts["item"])
 
     sheet = np.zeros((rows * CELL, cols * CELL, 4), np.uint8)
     for i, tile in enumerate(tiles):
