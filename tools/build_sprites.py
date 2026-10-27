@@ -40,7 +40,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        drop_white — убрать оторванные белые крошки (остатки фона);
 #        snap_floor — (с register) по вертикали ставить каждый кадр на пол отдельно;
 #        item — вынуть предмет из кадра в отдельный спрайт (см. extract_item);
-#        match_area — масштаб по площади фигуры другого листа, а не по росту
+#        match_area — масштаб по площади фигуры другого листа, а не по росту;
+#        match_skin — оттенок кожи как у другого листа (см. match_skin)
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -68,7 +69,8 @@ SHEETS = {
     # таблетку с пола (кадр 1) вынимаем в pill_item.png — движок роняет её сверху
     "pill": ("pill.png", 4, 4, 0, {"per_row": True, "row_floor": True, "min_blob": 0.0003,
                                    "item": {"frame": 1, "name": "pill_item"},
-                                   "match_area": "idle"}),   # тело тут уже — равняем по объёму
+                                   "match_area": "idle",     # тело тут уже — равняем по объёму
+                                   "match_skin": "idle"}),   # и кожа краснее — равняем оттенок
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
@@ -403,6 +405,28 @@ def build_native(name, src, cols, rows, opts):
             "frames": cols * rows, "scale": 1}
 
 
+def skin_mask(tile):
+    """Кожа: тёплые светлые пиксели (красный заметно выше зелёного, зелёный выше синего)."""
+    c = tile[..., :3].astype(int)
+    r, g, b = c[..., 0], c[..., 1], c[..., 2]
+    return (tile[..., 3] > 0) & (r > 120) & (r > g + 25) & (g > b) & (g > 60)
+
+
+def match_skin(tiles, reference):
+    """Подогнать оттенок кожи под другой лист: по каждому каналу сдвиг и растяжение
+    так, чтобы среднее и разброс кожи совпали с первым кадром эталона. Меняем
+    только пиксели кожи — майка, штаны и очки остаются как есть."""
+    ref = np.array(Image.open(OUT / f"{reference}.png"))[:CELL, :CELL]
+    want = ref[..., :3][skin_mask(ref)].astype(float)
+    masks = [skin_mask(t) for t in tiles]          # кожа — по исходным цветам, один раз
+    for _ in range(4):                             # после сдвига часть пикселей меняет класс — сходимся
+        have = np.concatenate([t[..., :3][m] for t, m in zip(tiles, masks)]).astype(float)
+        k = want.std(0) / have.std(0)
+        for t, m in zip(tiles, masks):
+            px = t[..., :3][m].astype(float)
+            t[..., :3][m] = np.clip((px - have.mean(0)) * k + want.mean(0), 0, 255).round().astype(np.uint8)
+
+
 def extract_item(tiles, frame, name):
     """Вынуть отдельный предмет (самый крупный кусок, кроме Игоряши) из кадра
     в свой маленький спрайт: движок рисует его сам — например, таблетка
@@ -484,6 +508,8 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         bake_blink(tiles, **opts["blink"])
     if opts.get("item"):
         extract_item(tiles, **opts["item"])
+    if opts.get("match_skin"):
+        match_skin(tiles, opts["match_skin"])
 
     sheet = np.zeros((rows * CELL, cols * CELL, 4), np.uint8)
     for i, tile in enumerate(tiles):
