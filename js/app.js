@@ -11,7 +11,6 @@ const autoQueue = ['walk', 'hungry', 'eat', 'poop', 'tanks', 'sleep', 'walk', 's
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, ready = false;
 let speed = Number($('speed').value);   // по умолчанию 1.75× — задано в index.html
 let last = 0, phrase = '', speechAt = 0, queueIndex = 0, events = [];
-let ill = false;   // заболел — можно дать таблетку (сбрасывается, когда съел)
 let said = false;  // реплика a.say уже прозвучала в этом показе
 let heap = null, pooped = false;   // куча в углу (js/heap.js) и «уже сходил в этом показе»
 let cracks = null, lastStep = -1;  // трещины на стекле (js/cracks.js) и шаг, на котором уже ударил
@@ -53,7 +52,6 @@ function updateUI() {
     const on = b.dataset.action === (animations[state].group || state);
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on);
-    if (animations[b.dataset.action].needsIll) b.disabled = !ill && !on;
   });
   $('poopCount').textContent = 'куча: ' + (heap ? heap.count : 0);
 }
@@ -298,15 +296,9 @@ function draw() {
 
 function complete() {
   const a = current;
-  if (a.makesIll) ill = true;
-  if (a.needsIll) ill = false;
   if (a.next) return setState(a.next[Math.floor(Math.random() * a.next.length)]);
-  if (auto && state === 'idle') {
-    let next = autoQueue[queueIndex++ % autoQueue.length];
-    if (animations[next].needsIll && !ill) next = autoQueue[queueIndex++ % autoQueue.length];
-    return setState(next);
-  }
-  setState('idle');
+  if (auto && state === 'idle') setState(autoQueue[queueIndex++ % autoQueue.length]);
+  else setState('idle');
 }
 
 // Предмет падает сверху ровно в точку, где он лежит в кадре, отскакивает
