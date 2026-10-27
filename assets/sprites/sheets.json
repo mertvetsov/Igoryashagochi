@@ -93,7 +93,7 @@
     "cols": 4,
     "rows": 4,
     "frames": 16,
-    "scale": 0.5578
+    "scale": 0.5684
   },
   "love": {
     "file": "sprites/love.png",

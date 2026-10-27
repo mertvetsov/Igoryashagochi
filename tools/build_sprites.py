@@ -39,7 +39,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        figures — сетка неровная: резать по отдельным фигурам в каждом ряду;
 #        drop_white — убрать оторванные белые крошки (остатки фона);
 #        snap_floor — (с register) по вертикали ставить каждый кадр на пол отдельно;
-#        item — вынуть предмет из кадра в отдельный спрайт (см. extract_item)
+#        item — вынуть предмет из кадра в отдельный спрайт (см. extract_item);
+#        match_area — масштаб по площади фигуры другого листа, а не по росту
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -66,7 +67,8 @@ SHEETS = {
     # (кадр 12 — прыжок: ряд на пол одним сдвигом, чтобы он остался в воздухе)
     # таблетку с пола (кадр 1) вынимаем в pill_item.png — движок роняет её сверху
     "pill": ("pill.png", 4, 4, 0, {"per_row": True, "row_floor": True, "min_blob": 0.0003,
-                                   "item": {"frame": 1, "name": "pill_item"}}),
+                                   "item": {"frame": 1, "name": "pill_item"},
+                                   "match_area": "idle"}),   # тело тут уже — равняем по объёму
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True}),
@@ -436,6 +438,12 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
 
     ys = np.nonzero(cells[ref][1].any(axis=1))[0]
     scale = HEIGHT / (ys.max() - ys.min() + 1)
+    if opts.get("match_area"):
+        # подогнать не по росту, а по объёму: площадь эталонного кадра = площади
+        # первого кадра уже собранного листа (генератор рисует пропорции по-разному)
+        target = np.count_nonzero(np.array(Image.open(OUT / f"{opts['match_area']}.png"))[:CELL, :CELL, 3])
+        area = np.count_nonzero(downscale(cells[ref][0], scale)[..., 3])
+        scale *= (target / area) ** 0.5
 
     def shrink(cell, body):
         small = downscale(cell, scale)
