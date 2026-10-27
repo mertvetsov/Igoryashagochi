@@ -46,20 +46,21 @@ SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
     "idle": ("idle.png", 6, 2, 0, {"native": True, "center": True}),
-    "hungry": ("hungry.png", 4, 4, 0),
+    # кожа в листах ниже краснее/желтее статики — оттенок по опорному кадру (match_skin)
+    "hungry": ("hungry.png", 4, 4, 0, {"match_skin": "idle", "skin_frame": 0}),
     "walk": ("walk.png", 6, 4, 0),
     # кучку у ноги вырезаем — куча живёт отдельно, в углу комнаты
-    "poop": ("poop.png", 4, 4, 0, {"cut_pile": True}),
+    "poop": ("poop.png", 4, 4, 0, {"cut_pile": True, "match_skin": "idle", "skin_frame": 0}),
     "eat": ("eat.png", 6, 4, 0),
-    # брызги рвоты мелкие — порог ниже, чтобы их не съело
-    # нарисован крупнее статики и с жёлтой кожей — равняем объём и оттенок
-    # (кожу меряем по кадру 0: дальше он зеленеет)
+    # брызги рвоты мелкие — порог ниже, чтобы их не съело; нарисован крупнее
+    # статики и с жёлтой кожей — равняем объём и оттенок (кожу меряем по кадру 0:
+    # дальше он зеленеет)
     "sick": ("sick.png", 6, 4, 0, {"min_blob": 0.0005, "match_area": "idle",
                                    "match_skin": "idle", "skin_frame": 0}),
     # танки: эталон — стоячие кадры; осколки ноутбука и штрихи движения мелкие
-    "tanks": ("tanks.png", 6, 4, 0, {"min_blob": 0.001}),
-    "tanks_win": ("tanks_win.png", 6, 4, 23, {"min_blob": 0.001}),
-    "tanks_lose": ("tanks_lose.png", 6, 4, 23, {"min_blob": 0.0005}),
+    "tanks": ("tanks.png", 6, 4, 0, {"min_blob": 0.001, "match_skin": "idle", "skin_frame": 0}),
+    "tanks_win": ("tanks_win.png", 6, 4, 23, {"min_blob": 0.001, "match_skin": "idle", "skin_frame": 23}),
+    "tanks_lose": ("tanks_lose.png", 6, 4, 23, {"min_blob": 0.0005, "match_skin": "idle", "skin_frame": 23}),
     # устаёт и ложится 0–7, спит и храпит 8–15 (цикл), встаёт 16–23;
     # в исходнике ряды по 6, 6, 4 и 8 кадров — режем по фигурам
     "sleep": ("sleep.png", 6, 4, 0, {"figures": True}),
@@ -76,7 +77,7 @@ SHEETS = {
                                    "match_skin": "idle"}),   # и кожа краснее — равняем оттенок
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
-                                    "anchor": "pants", "row_floor": True}),
+                                    "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),
 }
 REGISTER_BAND = 0.3   # нижняя доля тела (голени и ступни), по которой совмещаем кадры
 REGISTER_REACH = 8    # поиск сдвига ±px в исходном разрешении
