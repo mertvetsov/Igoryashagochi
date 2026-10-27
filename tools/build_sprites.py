@@ -52,7 +52,10 @@ SHEETS = {
     "poop": ("poop.png", 4, 4, 0, {"cut_pile": True}),
     "eat": ("eat.png", 6, 4, 0),
     # брызги рвоты мелкие — порог ниже, чтобы их не съело
-    "sick": ("sick.png", 6, 4, 0, {"min_blob": 0.0005}),
+    # нарисован крупнее статики и с жёлтой кожей — равняем объём и оттенок
+    # (кожу меряем по кадру 0: дальше он зеленеет)
+    "sick": ("sick.png", 6, 4, 0, {"min_blob": 0.0005, "match_area": "idle",
+                                   "match_skin": "idle", "skin_frame": 0}),
     # танки: эталон — стоячие кадры; осколки ноутбука и штрихи движения мелкие
     "tanks": ("tanks.png", 6, 4, 0, {"min_blob": 0.001}),
     "tanks_win": ("tanks_win.png", 6, 4, 23, {"min_blob": 0.001}),
@@ -412,15 +415,17 @@ def skin_mask(tile):
     return (tile[..., 3] > 0) & (r > 120) & (r > g + 25) & (g > b) & (g > 60)
 
 
-def match_skin(tiles, reference):
+def match_skin(tiles, reference, by_frame=None):
     """Подогнать оттенок кожи под другой лист: по каждому каналу сдвиг и растяжение
     так, чтобы среднее и разброс кожи совпали с первым кадром эталона. Меняем
     только пиксели кожи — майка, штаны и очки остаются как есть."""
     ref = np.array(Image.open(OUT / f"{reference}.png"))[:CELL, :CELL]
     want = ref[..., :3][skin_mask(ref)].astype(float)
     masks = [skin_mask(t) for t in tiles]          # кожа — по исходным цветам, один раз
+    # by_frame — мерить кожу только по этому кадру (например, пока не позеленел от болезни)
+    measure = [by_frame] if by_frame is not None else range(len(tiles))
     for _ in range(4):                             # после сдвига часть пикселей меняет класс — сходимся
-        have = np.concatenate([t[..., :3][m] for t, m in zip(tiles, masks)]).astype(float)
+        have = np.concatenate([tiles[i][..., :3][masks[i]] for i in measure]).astype(float)
         k = want.std(0) / have.std(0)
         for t, m in zip(tiles, masks):
             px = t[..., :3][m].astype(float)
@@ -509,7 +514,7 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
     if opts.get("item"):
         extract_item(tiles, **opts["item"])
     if opts.get("match_skin"):
-        match_skin(tiles, opts["match_skin"])
+        match_skin(tiles, opts["match_skin"], opts.get("skin_frame"))
 
     sheet = np.zeros((rows * CELL, cols * CELL, 4), np.uint8)
     for i, tile in enumerate(tiles):
