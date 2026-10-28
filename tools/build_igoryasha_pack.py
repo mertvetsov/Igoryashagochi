@@ -202,9 +202,9 @@ COMMON = ['Ой вей.', 'Ну ой.', 'Ой вей из мир.', 'Ну ой, 
           'Ну шо вы хотите от меня?']
 SAY = {
     'idle': ['Ну чо вы смотрите?', 'О_О', 'Я всё контролирую.', 'Ну стою. И шо?', 'Ой, не начинайте.', *COMMON],
-    'feed': ['Ммм, похлёбочка.', 'Наконец-то покормили.', 'Ой, вкусно, ой.', 'Ну хоть шо-то.'],
+    'feed': ['Ммм, хинкалик.', 'Наконец-то покормили.', 'Ой, вкусно, ой.', 'Ну хоть шо-то.'],
     'vomit': ['Ой, куда столько...', 'Хватит, хватит!', 'Ой вей, перебор...', 'Не лезет уже!'],
-    'sick': ['Чёт мне нехорошо...', 'Похлёбка была несвежая.', 'Ой вей, помираю.', 'Дайте таблеточку...'],
+    'sick': ['Чёт мне нехорошо...', 'Хинкал был несвежий.', 'Ой вей, помираю.', 'Дайте таблеточку...'],
     'clean': ['О, чистота!', 'Так-то лучше.', 'Ну наконец-то.', 'Спасибо, шо ли.'],
     'pill': ['О, таблеточка!', 'Шо это? Ну давай.'],
     'cured': ['О, полегчало!', 'Таблеточка - сила!', 'Жить можно.', 'Вот это я понимаю.'],
@@ -235,6 +235,12 @@ def build_header():
     room.alpha_composite(panel)
     px = rgb565(np.asarray(room.convert('RGB'))).ravel()
     words = ','.join(f'0x{v:04X}' for v in px)
+    # таблетка, которая падает сверху перед «Дать таблетку» (как drop в песочнице)
+    pill = np.asarray(Image.open(SPRITES / 'pill_item.png').convert('RGBA'))
+    pv = rgb565(pill[..., :3]).astype(np.uint32)
+    pv[(pv == 0) & (pill[..., 3] >= 128)] = 0x0001   # чёрная обводка: 0 занят под «прозрачно»
+    pv[pill[..., 3] < 128] = 0
+    pill_words = ','.join(f'0x{v:04X}' for v in pv.ravel())
 
     font = ui.glcd()
     glyphs = '\n'.join('  {' + ', '.join(f'0x{c:02X}' for c in ui.glyph_columns(ch, font)) + '},' + f'  // {ch}'
@@ -272,7 +278,10 @@ def build_header():
         generated + '#pragma once\n#include <Arduino.h>\n\n'
         f'#define IGR_PANEL_Y {PANEL_Y}\n\n'
         '// Комната 240×240 с плашкой часов, RGB565. Шрифт, иконки и реплики — в IgoryashaText.h.\n'
-        f'static const uint16_t IGR_ROOM[] PROGMEM = {{{words}}};\n')
+        f'static const uint16_t IGR_ROOM[] PROGMEM = {{{words}}};\n\n'
+        '// Таблетка, падающая сверху в начале «таблетки», RGB565, 0 — прозрачно.\n'
+        f'#define IGR_PILL_W {pill.shape[1]}\n#define IGR_PILL_H {pill.shape[0]}\n'
+        f'static const uint16_t IGR_PILL_ITEM[] PROGMEM = {{{pill_words}}};\n')
     TEXT_HEADER.write_text(
         generated + '#pragma once\n#include <Arduino.h>\n\n'
         '// Своя кириллица в сетке встроенного шрифта: 5 столбцов по 8 бит, бит 0 — верх.\n'
