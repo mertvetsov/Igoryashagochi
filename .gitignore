@@ -3,3 +3,8 @@
 __pycache__/
 # исходники с кириллическими именами лежат в source/ под латинскими
 /*.png
+
+# прошивка: сборка PlatformIO, сгенерированные картинки, бэкапы флешки
+firmware/.pio/
+firmware/src/assets.h
+backup/
