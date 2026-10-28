@@ -8,3 +8,7 @@ __pycache__/
 firmware/.pio/
 firmware/src/assets.h
 backup/
+
+# форк smalltv-mod — свой git-репозиторий (ветка igoryasha); пак собирает tools/build_igoryasha_pack.py
+smalltv-mod/
+pack/
