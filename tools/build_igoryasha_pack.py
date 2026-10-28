@@ -40,6 +40,7 @@ SHEETS = {
     'idle': (6, 12), 'hungry': (4, 16), 'walk': (6, 24), 'poop': (4, 16), 'eat': (6, 24),
     'sick': (6, 24), 'tanks': (6, 24), 'tanks_win': (6, 24), 'tanks_lose': (6, 24),
     'love': (8, 24), 'sleep': (6, 24), 'sad': (6, 24), 'pill': (4, 16),
+    'pile': (6, 6),   # кучка в углу: кадр = размер, уже стоит на своём месте на полу
 }
 SHEET_IDS = {name: i for i, name in enumerate(SHEETS)}
 
@@ -84,8 +85,17 @@ def scripts():
     love = steps('love', [*rng(8), *love_loop * 3, *rng(8, 16)],
                  [500, 300, 350, 400, 500, 350, 450, 350, *love_loop_ms * 3, 450, 300, 250, 350, 350, 400, 400, 600])
     sleep_loop, sleep_loop_ms = rng(8, 8), [320, 300, 360, 420, 300, 300, 360, 420]
-    sleep = steps('sleep', [*rng(8), *sleep_loop * 4, *rng(8, 16)],
-                  [500, 450, 650, 350, 350, 400, 400, 500, *sleep_loop_ms * 4, 400, 650, 350, 500, 350, 350, 400, 600])
+    sleep_in_ms, sleep_out_ms = [500, 450, 650, 350, 350, 400, 400, 500], [400, 650, 350, 500, 350, 350, 400, 600]
+    sleep = steps('sleep', [*rng(8), *sleep_loop * 4, *rng(8, 16)], [*sleep_in_ms, *sleep_loop_ms * 4, *sleep_out_ms])
+    # ночной сон по частям: лёг, храпит (прошивка крутит до утра), встал
+    sleep_in = steps('sleep', rng(8), sleep_in_ms)
+    sleep_snore = steps('sleep', sleep_loop, sleep_loop_ms)
+    sleep_out = steps('sleep', rng(8, 16), sleep_out_ms)
+    # злой спросонья: подходит к стеклу и колотит в него кулаком (кадры «голода»), потом отходит
+    bang, bang_ms = [4, 5, 6, 7], [160, 140, 160, 140]
+    angry = steps('hungry', [0, 1, 2, 3, *bang * 4, 3, 2, 1, 0], [400, 200, 200, 250, *bang_ms * 4, 250, 200, 200, 400])
+    # кучка: не сценарий, а таблица кадров листа по размеру 1…6
+    pile = steps('pile', rng(6), 0)
     sob, sob_ms = [6, 7, 8, 9, 11, 12, 13, 14, 15, 16], [300, 260, 240, 320, 380, 300, 260, 240, 300, 340]
     sad = steps('sad', [*rng(6), *sob * 2, *rng(6, 18)], [600, 450, 450, 400, 450, 450, *sob_ms * 2, 450, 500, 450, 450, 500, 700])
     hop, hop_ms = [11, 12, 13], [120, 150, 110]
@@ -110,7 +120,12 @@ def scripts():
         ('tanks_win', 0, [], win),
         ('tanks_lose', 0, [], lose),
         ('love', ENTRY, [], love),
-        ('sleep', ENTRY | NIGHT, [], sleep),
+        ('sleep', 0, [], sleep),
+        ('sleep_in', 0, [], sleep_in),
+        ('sleep_snore', 0, [], sleep_snore),
+        ('sleep_out', 0, [], sleep_out),
+        ('angry', 0, [], angry),
+        ('pile', 0, [], pile),
         ('sad', ENTRY, [], sad),
         ('pill', ENTRY, [], pill),
         ('poop', ENTRY, [], poop),
