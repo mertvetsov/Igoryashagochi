@@ -2,7 +2,8 @@
 
 Делает две вещи:
   smalltv-mod/src/features/igoryasha/IgoryashaAssets.h — комната с плашкой часов в RGB565
-      (живёт в прошивке) и кириллические буквы 5×7 для даты;
+      (живёт в прошивке); IgoryashaText.h — русский шрифт 5×7, иконки меню и реплики
+      (их рисует tools/igoryasha_ui.py, он же делает превью);
   pack/igoryasha.bin — пак анимаций, который грузится на флешку устройства через веб-интерфейс.
 
 Пак: на каждый лист — общий прямоугольник всех его кадров (координаты ячейки 240×240),
@@ -29,6 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SPRITES = ROOT / 'assets' / 'sprites'
 PACK = ROOT / 'pack' / 'igoryasha.bin'
 HEADER = ROOT / 'smalltv-mod' / 'src' / 'features' / 'igoryasha' / 'IgoryashaAssets.h'
+TEXT_HEADER = HEADER.with_name('IgoryashaText.h')
 CELL = 240
 COLORS = 64
 
@@ -188,62 +190,111 @@ def build_pack():
     return len(head) + sum(map(len, blobs)), biggest, longest
 
 
-# --- кириллица для даты: 5×7 в стиле встроенного шрифта (латинские двойники берутся из него) ---
-GLYPHS = {
-    'П': ['#####', '#...#', '#...#', '#...#', '#...#', '#...#', '#...#'],
-    'Ч': ['#...#', '#...#', '#...#', '.####', '....#', '....#', '....#'],
-    'Б': ['#####', '#....', '#....', '####.', '#...#', '#...#', '####.'],
-    'Я': ['.####', '#...#', '#...#', '.####', '..#.#', '.#..#', '#...#'],
-    'Ф': ['..#..', '.###.', '#.#.#', '#.#.#', '.###.', '..#..', '..#..'],
-    'Д': ['.###.', '.#.#.', '.#.#.', '.#.#.', '.#.#.', '#####', '#...#'],
-    'И': ['#...#', '#...#', '#..##', '#.#.#', '##..#', '#...#', '#...#'],
-    'Ю': ['#..#.', '#.#.#', '#.#.#', '###.#', '#.#.#', '#.#.#', '#..#.'],
-    'Л': ['..###', '.#..#', '.#..#', '.#..#', '.#..#', '.#..#', '#...#'],
-    'Г': ['#####', '#....', '#....', '#....', '#....', '#....', '#....'],
-}
+# --- надписи: шрифт, иконки меню и реплики берутся из igoryasha_ui (там же превью) ---
 WEEKDAYS = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ']   # как tm_wday
 MONTHS = ['ЯНВ', 'ФЕВ', 'МАР', 'АПР', 'МАЯ', 'ИЮН', 'ИЮЛ', 'АВГ', 'СЕН', 'ОКТ', 'НОЯ', 'ДЕК']
-LATIN = dict(zip('АВЕКМНОРСТ', 'ABEKMHOPCT'))
+BUBBLE_CHARS = 18        # символов в строке пузыря при шрифте ×2 (как в превью)
+
+# Реплики по событиям; порядок групп = enum IgrSay в прошивке. Часть — из песочницы
+# (js/animations.js), часть новая: уборка, болезнь, таблетка, побудка.
+COMMON = ['Ой вей.', 'Ну ой.', 'Ой вей из мир.', 'Ну ой, ну шо.', 'Ой, всё.', 'Ну такое.', 'Ой, да ладно.',
+          'Ну шо началось-то?', 'Ой, мама.', 'Ну и ну.', 'Вей.', 'Ну ой, ну куда.', 'Ой, не говорите.',
+          'Ну шо вы хотите от меня?']
+SAY = {
+    'idle': ['Ну чо вы смотрите?', 'О_О', 'Я всё контролирую.', 'Ну стою. И шо?', 'Ой, не начинайте.', *COMMON],
+    'feed': ['Ммм, похлёбочка.', 'Наконец-то покормили.', 'Ой, вкусно, ой.', 'Ну хоть шо-то.'],
+    'vomit': ['Ой, куда столько...', 'Хватит, хватит!', 'Ой вей, перебор...', 'Не лезет уже!'],
+    'sick': ['Чёт мне нехорошо...', 'Похлёбка была несвежая.', 'Ой вей, помираю.', 'Дайте таблеточку...'],
+    'clean': ['О, чистота!', 'Так-то лучше.', 'Ну наконец-то.', 'Спасибо, шо ли.'],
+    'pill': ['О, таблеточка!', 'Шо это? Ну давай.'],
+    'cured': ['О, полегчало!', 'Таблеточка - сила!', 'Жить можно.', 'Вот это я понимаю.'],
+    'buzz': ['Я на жёстких бизиках!'],
+    'love': ['Ты у меня одна.', 'Только не лопни.', 'Ой, ну шо ты как неродная.'],
+    'tanks': ['Ща я их всех.', 'Куда ты едешь?!', 'Арта, ну ёпт.', 'Ой вей, союзники...'],
+    'tanks_win': ['Ахаха, то есть мяу!', 'Лох и чичикака!'],
+    'tanks_lose': ['Это всё лаги!', 'Ноут виноват.', 'ОЙ ВЕЙ!!!', 'Ну ой, ну шо такое...'],
+    'woken': ['Ну ты чего, ночь же!', 'Шо?! Кто?!', 'Дай поспать, ну!', 'Ой вей, ну зачем...'],
+    'hungry': ['А хинкал будет?', 'Ну покормите уже.', 'Ой вей, я голодный!', 'Ну ой, где еда?'],
+    'sad': ['Ой вей, никто меня не любит...', 'Ну ой... ну за шо?!', 'Хинкала нет, и жизни нет!',
+            'Да за шо мне это всё?!'],
+    'poop': ['Отойдите на минутку.', 'Хинкал был лишний.', 'Ой вей, ну вы чего смотрите.'],
+    'sleep': ['Чёт я устал...', 'Ой вей, спать.', 'Разбудите к хинкалу.'],
+    'walk': ['Чёт нервно мне.', 'Туда. Сюда. Обратно.', 'Ой вей, шо ж делать-то.', 'Ну ой, ну нервы.'],
+}
 
 
-def encode_label(text):
-    """Буквы как байты: латинские двойники — их ASCII, свои глифы — 0x80 + номер."""
-    order = list(GLYPHS)
-    return [ord(LATIN[c]) if c in LATIN else 0x80 + order.index(c) if c in GLYPHS else ord(c) for c in text]
-
-
-def glyph_columns(rows):
-    return [sum(1 << y for y in range(7) if rows[y][x] == '#') for x in range(5)]
+def c_bytes(name, data):
+    return f'static const uint8_t {name}[] = {{{", ".join(str(b) for b in data)}}};\n'
 
 
 def build_header():
+    import igoryasha_ui as ui
     room = Image.open(SPRITES / 'room.png').convert('RGBA')
     panel = Image.new('RGBA', room.size)
     ImageDraw.Draw(panel).rounded_rectangle(PANEL, radius=8, fill=(16, 18, 14, 170))
     room.alpha_composite(panel)
     px = rgb565(np.asarray(room.convert('RGB'))).ravel()
     words = ','.join(f'0x{v:04X}' for v in px)
-    glyphs = '\n'.join('  {' + ', '.join(f'0x{c:02X}' for c in glyph_columns(r)) + '},' + f'  // {ch}'
-                       for ch, r in GLYPHS.items())
-    label = lambda t: '{' + ', '.join(str(b) for b in encode_label(t)) + ', 0}'
+
+    font = ui.glcd()
+    glyphs = '\n'.join('  {' + ', '.join(f'0x{c:02X}' for c in ui.glyph_columns(ch, font)) + '},' + f'  // {ch}'
+                       for ch in ui.CYR_ORDER)
+    label = lambda t: '{' + ', '.join(str(b) for b in ui.encode(t)) + ', 0}'
+
+    # иконки меню: RGB565, 0 — прозрачно (чёрного в иконках нет, обводка тёмно-коричневая)
+    icons = []
+    for name in ui.MENU:
+        a = np.asarray(ui.icon(name))
+        v = rgb565(a[..., :3]).astype(np.uint32)
+        v[a[..., 3] == 0] = 0
+        assert not ((v == 0) & (a[..., 3] > 0)).any()
+        icons.append('  {' + ','.join(f'0x{x:04X}' for x in v.ravel()) + '},  // ' + name)
+
+    # реплики: заранее разбиты на строки пузыря, строки через \n
+    say_c, groups = [], []
+    for g, phrases in SAY.items():
+        names = []
+        for i, text in enumerate(phrases):
+            lines = ui.wrap(text, BUBBLE_CHARS)
+            assert len(lines) <= 2 and all(len(l) <= BUBBLE_CHARS for l in lines), text
+            data = []
+            for k, line in enumerate(lines):
+                data += ([10] if k else []) + ui.encode(line)
+            names.append(f'SAY_{g}_{i}')
+            say_c.append(c_bytes(names[-1], data + [0]))
+        say_c.append(f'static const uint8_t* const SAY_{g}[] = {{{", ".join(names)}}};\n')
+        groups.append(f'  {{SAY_{g}, {len(names)}}},')
+    enum = ', '.join(f'IGR_SAY_{g.upper()}' for g in SAY)
+
     HEADER.parent.mkdir(parents=True, exist_ok=True)
+    generated = '// Сгенерировано tools/build_igoryasha_pack.py (в проекте Игоряшгочи) — не править руками.\n'
     HEADER.write_text(
-        '// Сгенерировано tools/build_igoryasha_pack.py (в проекте Игоряшгочи) — не править руками.\n'
-        '#pragma once\n#include <Arduino.h>\n\n'
+        generated + '#pragma once\n#include <Arduino.h>\n\n'
         f'#define IGR_PANEL_Y {PANEL_Y}\n\n'
-        '// Комната 240×240 с плашкой часов, RGB565.\n'
-        f'static const uint16_t IGR_ROOM[] PROGMEM = {{{words}}};\n\n'
-        '// Свои буквы 5×7: столбцы слева направо, бит 0 — верхняя строка. Код в подписи — 0x80 + номер.\n'
+        '// Комната 240×240 с плашкой часов, RGB565. Шрифт, иконки и реплики — в IgoryashaText.h.\n'
+        f'static const uint16_t IGR_ROOM[] PROGMEM = {{{words}}};\n')
+    TEXT_HEADER.write_text(
+        generated + '#pragma once\n#include <Arduino.h>\n\n'
+        '// Своя кириллица в сетке встроенного шрифта: 5 столбцов по 8 бит, бит 0 — верх.\n'
+        '// В строке такая буква — байт 0x80 + номер; остальное — ASCII встроенного шрифта.\n'
         f'static const uint8_t IGR_GLYPHS[][5] = {{\n{glyphs}\n}};\n\n'
         f'static const uint8_t IGR_WEEKDAYS[7][3] = {{{", ".join(label(w) for w in WEEKDAYS)}}};\n'
-        f'static const uint8_t IGR_MONTHS[12][4] = {{{", ".join(label(m) for m in MONTHS)}}};\n')
+        f'static const uint8_t IGR_MONTHS[12][4] = {{{", ".join(label(m) for m in MONTHS)}}};\n\n'
+        f'// Иконки меню {ui.ICON}×{ui.ICON}, RGB565, 0 — прозрачно: {", ".join(ui.MENU)}.\n'
+        f'#define IGR_ICON {ui.ICON}\n'
+        f'static const uint16_t IGR_ICONS[{len(ui.MENU)}][{ui.ICON * ui.ICON}] PROGMEM = {{\n' + '\n'.join(icons) + '\n};\n\n'
+        '// Реплики: строки пузыря через \\n, группы по событиям.\n'
+        f'enum IgrSay {{{enum}, IGR_SAY_COUNT}};\n'
+        + ''.join(say_c) +
+        'struct IgrSayGroup { const uint8_t* const* lines; uint8_t count; };\n'
+        'static const IgrSayGroup IGR_SAY[] = {\n' + '\n'.join(groups) + '\n};\n')
 
 
 def main():
     size, biggest, longest = build_pack()
     build_header()
     print(f'{PACK.relative_to(ROOT)}: {size // 1024} КБ (кадр до {biggest} пикселей, сжатый до {longest} байт)')
-    print(f'{HEADER.relative_to(ROOT)}: комната и буквы')
+    print(f'{HEADER.relative_to(ROOT)}: комната; {TEXT_HEADER.name}: шрифт, иконки, реплики')
 
 
 if __name__ == '__main__':
