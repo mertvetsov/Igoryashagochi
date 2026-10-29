@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Игоряшгочи</title>
+<meta name="description" content="Тамагочи про Игоряшу: кормить, убирать, лечить, играть в танки.">
+<style>
+:root{color-scheme:dark;--bg:#171917;--panel:#222620;--line:#393f35;--ink:#eeefdf;--muted:#9ca48e;--lime:#d8f478;--gold:#f5c542}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,sans-serif}
+main{max-width:560px;margin:auto;padding:20px 16px 40px;display:flex;flex-direction:column;align-items:center;gap:14px}
+h1{font-size:26px;letter-spacing:-.8px;margin:0;font-weight:800}
+h1 span{color:var(--lime)}
+.lead{margin:-10px 0 0;color:var(--muted);text-align:center}
+.device{width:100%;max-width:max(300px,min(520px,100svh - 250px));background:#33382f;border:1px solid #535a49;border-radius:26px;padding:16px;
+  box-shadow:0 18px 40px #0007,inset 0 1px 0 #ffffff1c}
+canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated;background:#0d0e0c;border-radius:6px;opacity:0;transition:opacity .3s}
+.ready canvas{opacity:1}
+.device-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:12px}
+.brand{font:11px ui-monospace,monospace;letter-spacing:2px;text-transform:uppercase;color:#b3baa5}
+#pad{width:58px;height:58px;border-radius:50%;border:1px solid #5d6553;background:radial-gradient(circle at 40% 35%,#4a5242,#2a2e26);
+  box-shadow:0 3px 0 #1b1e18,inset 0 1px 0 #ffffff22;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;
+  color:#b3baa5;font:10px ui-monospace,monospace;flex:none}
+#pad.down{transform:translateY(2px);box-shadow:0 1px 0 #1b1e18,inset 0 2px 6px #0008}
+#pad:focus-visible,.care button:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+.pad-hint{font-size:12px;color:var(--muted);line-height:1.35;text-align:right}
+#status{min-height:1.5em;text-align:center;font-weight:600}
+.care{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:100%;max-width:max(300px,min(520px,100svh - 250px))}
+.care button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px 10px;border-radius:14px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;
+  transition:background .15s,border-color .15s,transform .1s}
+.care button:hover:not(:disabled){border-color:var(--gold);background:#2b3027}
+.care button:active:not(:disabled){transform:translateY(1px)}
+.care button:disabled{opacity:.38;cursor:default;filter:grayscale(1)}
+.care img{width:44px;height:44px;image-rendering:pixelated}
+details{width:100%;max-width:520px;color:var(--muted);font-size:13px}
+summary{cursor:pointer}
+#stats{font:12px ui-monospace,monospace;margin-top:6px}
+.rules{margin:8px 0 0;padding-left:18px}
+@media (max-width:420px){.care button{font-size:11px;padding:10px 2px 8px}.care img{width:36px;height:36px}.pad-hint{display:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Игоряш<span>гочи</span></h1>
+  <p class="lead">Покорми, убери, полечи и поиграй — как на экранчике SmallTV.</p>
+
+  <div class="device">
+    <canvas id="screen" width="240" height="240" aria-label="Экран тамагочи: Игоряша в комнате"></canvas>
+    <div class="device-bottom">
+      <span class="brand">SmallTV · Игоряша</span>
+      <span class="pad-hint">Кнопка как на устройстве:<br>тап — меню и выбор, удержание — листать</span>
+      <button id="pad" aria-label="Сенсорная кнопка устройства">●</button>
+    </div>
+  </div>
+
+  <p id="status" aria-live="polite">Загружается…</p>
+
+  <div class="care">
+    <button data-item="0"><img alt="">Покормить</button>
+    <button data-item="1"><img alt="">Убрать</button>
+    <button data-item="2"><img alt="">Таблетка</button>
+    <button data-item="3"><img alt="">Любовь</button>
+    <button data-item="4"><img alt="">Танки</button>
+  </div>
+
+  <details>
+    <summary>Как он живёт</summary>
+    <ul class="rules">
+      <li>Голод и туалет копятся по настоящим часам, даже когда страница закрыта (до суток).</li>
+      <li>С 23:00 до 7:00 он спит. Разбудишь — встанет злой и будет колотить в стекло.</li>
+      <li>Покормишь сытого три раза подряд — стошнит, и он заболеет. Лечится таблеткой.</li>
+      <li>Четыре кучки и больше целый час — тоже заболеет.</li>
+      <li>Любовь и танки — только на чистом полу и когда здоров.</li>
+    </ul>
+    <div id="stats"></div>
+  </details>
+</main>
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
