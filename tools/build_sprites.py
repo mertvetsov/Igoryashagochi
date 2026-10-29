@@ -42,7 +42,8 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        snap_floor — (с register) по вертикали ставить каждый кадр на пол отдельно;
 #        item — вынуть предмет из кадра в отдельный спрайт (см. extract_item);
 #        match_area — масштаб по площади фигуры другого листа, а не по росту;
-#        match_skin — оттенок кожи как у другого листа (см. match_skin)
+#        match_skin — оттенок кожи как у другого листа (см. match_skin);
+#        row_fix — подогнать масштаб отдельного ряда по его стоячему кадру
 SHEETS = {
     # уже в ячейках 240 px: дыхание 0–5, моргание 6–11 (тот же кадр + закрытые
     # глаза); ряды почёсывания ниже не берём. Лист сдвигаем целиком к якорю.
@@ -82,8 +83,10 @@ SHEETS = {
                                      "min_blob": 0.0005, "match_area": "idle",
                                      "match_skin": "idle", "skin_frame": 0}),
     # смотрит телик: садится 0–5, смотрит и ржёт 6–15, встаёт 16–23 (каждый кадр на пол)
+    # последний ряд (встаёт с колен) нарисован на четверть мельче — row_fix по кадру 23,
+    # первые два кадра ряда (ещё на четвереньках) доводим до масштаба плавно
     "tv": ("tv.png", 6, 4, 0, {"per_row": True, "min_blob": 0.0005, "match_area": "idle",
-                               "match_skin": "idle", "skin_frame": 0}),
+                               "match_skin": "idle", "skin_frame": 0, "row_fix": [[3, 23, 2]]}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),
@@ -484,11 +487,21 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         area = np.count_nonzero(downscale(cells[ref][0], scale)[..., 3])
         scale *= (target / area) ** 0.5
 
-    def shrink(cell, body):
-        small = downscale(cell, scale)
+    def shrink(cell, body, k=1.0):
+        small = downscale(cell, scale * k)
         return small, np.array(Image.fromarray(body).resize(small.shape[1::-1], Image.NEAREST))
 
-    shrunk = [shrink(c, b) for c, b in cells]
+    # row_fix: [[ряд, кадр, разгон], …] — генератор нарисовал ряд мельче/крупнее:
+    # масштаб подбираем так, чтобы стоячий кадр совпал по площади с эталоном.
+    # Первые «разгон» кадров ряда доводим до этого масштаба плавно — они стыкуются
+    # с предыдущим рядом, где размер был правильный.
+    frame_k = {}
+    for row, frame, ramp in opts.get("row_fix", []):
+        k = (np.count_nonzero(cells[ref][1]) / np.count_nonzero(cells[frame][1])) ** 0.5
+        for j in range(cols):
+            t = min(1.0, j / ramp) if ramp else 1.0
+            frame_k[row * cols + j] = 1 + (k - 1) * t
+    shrunk = [shrink(c, b, frame_k.get(i, 1.0)) for i, (c, b) in enumerate(cells)]
     # выровненные кадры ставим все по эталонному, чтобы не сбить совмещение
     fixed = place(*shrunk[ref]) if opts.get("register") else None
     if opts.get("anchor") == "pants":
