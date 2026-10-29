@@ -91,6 +91,9 @@ SHEETS = {
     # объём и кожа по статике
     "scratch": ("scratch.png", 4, 4, 0, {"per_row": True, "register": True, "snap_floor": True,
                                          "match_area": "idle", "match_skin": "idle", "skin_frame": 0}),
+    # пугается: вздрагивает, озирается, успокаивается; стоит на месте
+    "scared": ("scared.png", 4, 4, 0, {"per_row": True, "register": True, "snap_floor": True,
+                                       "match_area": "idle", "match_skin": "idle", "skin_frame": 0}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),

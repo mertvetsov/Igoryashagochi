@@ -27,6 +27,7 @@
     dance:   { src: 'assets/sprites/dance.png',   cols: 6, frames: 24 },
     tv:      { src: 'assets/sprites/tv.png',      cols: 6, frames: 24 },
     scratch: { src: 'assets/sprites/scratch.png', cols: 4, frames: 16 },
+    scared:  { src: 'assets/sprites/scared.png',  cols: 4, frames: 16 },
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -120,6 +121,10 @@
   const itch = [2, 3, 4, 3];
   const scratchSeq = [1, ...itch, ...itch, ...itch, ...itch, 14, 15];
   const scratchMs = [200, ...Array(16).fill(150), 220, 280];
+  // Пугается: насторожился (1), ахнул (2), вздрогнул и сжался (3), озирается по
+  // сторонам (4–9), выдыхает и успокаивается (10–15). Стоячий 0 пропускаем.
+  const scaredSeq = [1, 2, 3, 3, 4, 5, 6, 7, 8, 9, 6, 7, 10, 11, 12, 13, 14, 15];
+  const scaredMs = [300, 220, 120, 380, 350, 300, 350, 300, 400, 380, 300, 300, 350, 350, 400, 400, 450, 500];
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -238,6 +243,14 @@
       sheet: 'scratch',
       frames: seq(scratchSeq, scratchMs),
       phrases: ['Задумался.', 'Дела житейские.', 'Ой вей, чешется.', 'Ну а шо, имею право.'],
+    },
+    scared: {
+      label: 'Испугался',
+      sheet: 'scared',
+      frames: seq(scaredSeq, scaredMs),
+      // вздрогнул — короткий толчок экрана
+      shake: { frames: [3], ms: 120, path: [[0, -2], [1, 1], [-1, 0], [0, 0]] },
+      phrases: ['Шо это было?!', 'Ой вей! Кто здесь?', 'Ну ой… показалось.', 'Мама…'],
     },
     poop: {
       label: 'У него важное дело',

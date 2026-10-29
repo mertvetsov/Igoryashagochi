@@ -119,6 +119,14 @@
     "frames": 16,
     "scale": 0.5126
   },
+  "scared": {
+    "file": "sprites/scared.png",
+    "cell": 240,
+    "cols": 4,
+    "rows": 4,
+    "frames": 16,
+    "scale": 0.4587
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,
