@@ -35,6 +35,7 @@ MIN_BLOB = 0.004    # доля от площади персонажа: мель�
 #        per_row — резать колонки в каждом ряду отдельно, по середине широких промежутков;
 #        anchor="pants" — центровать по штанам (когда в руках крупный реквизит);
 #        row_floor — ставить на пол весь ряд одним сдвигом (сохраняет прыжки);
+#        airborne — (с row_floor) только эти кадры по ряду, остальные — каждый на пол;
 #        cut_pile — вырезать кучку у ноги (лист «посрать»);
 #        figures — сетка неровная: резать по отдельным фигурам в каждом ряду;
 #        drop_white — убрать оторванные белые крошки (остатки фона);
@@ -75,6 +76,11 @@ SHEETS = {
                                    "item": {"frame": 1, "name": "pill_item"},
                                    "match_area": "idle",     # тело тут уже — равняем по объёму
                                    "match_skin": "idle"}),   # и кожа краснее — равняем оттенок
+    # неловкий танец; кадр 14 — подскок (остаётся в воздухе, остальные — на пол).
+    # Генератор нарисовал его по-своему — равняем объём и кожу по статике
+    "dance": ("dance.png", 6, 4, 0, {"per_row": True, "row_floor": True, "airborne": [14],
+                                     "min_blob": 0.0005, "match_area": "idle",
+                                     "match_skin": "idle", "skin_frame": 0}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),
@@ -498,7 +504,7 @@ def build_sheet(name, file, cols, rows, ref, opts=None):
         dx, dy = fixed or place(small, body_small)
         if opts.get("anchor") == "pants":
             dx = ANCHOR_X - round(np.nonzero(pants_mask(small))[1].mean() + lean)
-        if opts.get("row_floor"):
+        if opts.get("row_floor") and i in opts.get("airborne", [i]):
             dy = FLOOR - row_bottom[i // cols]
         if opts.get("snap_floor"):
             dy = FLOOR - np.nonzero(body_small)[0].max()   # по x — совмещение, по y — каждый на пол

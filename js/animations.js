@@ -24,6 +24,7 @@
     sad:     { src: 'assets/sprites/sad.png',     cols: 6, frames: 24 },
     pill:    { src: 'assets/sprites/pill.png',    cols: 4, frames: 16 },
     pill_item: { src: 'assets/sprites/pill_item.png' },   // таблетка 11×7, падает сверху
+    dance:   { src: 'assets/sprites/dance.png',   cols: 6, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -102,6 +103,10 @@
                    ...hop, ...hop, ...hop, ...hop, ...hop, ...hop, 10];
   const pillMs = [1300, 350, 450, 380, 380, 260, 260, 260, 260, 500, 600, 400,
                   ...hopMs, ...hopMs, ...hopMs, ...hopMs, ...hopMs, ...hopMs, 500];
+  // Танец: кадры 1–20 целиком, потом ещё круг 6–19 (тыкает пальцем, руки вверх,
+  // подскок на 14) и выдох 20–21. Стоячие 0 и 22–23 пропускаем — сразу из статики и в неё.
+  const danceSeq = [...range(20).map(i => i + 1), ...range(14).map(i => i + 6), 20, 21];
+  const danceMs = danceSeq.map(f => (f === 14 ? 260 : f === 7 || f === 8 || f === 12 ? 280 : f >= 20 ? 320 : 200));
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -202,6 +207,12 @@
       shake: { frames: [13], ms: 110, path: [[0, 2], [0, -1], [0, 1], [0, 0]] },   // приземления
       phrases: ['О, таблеточка!', 'Шо это? Ну давай.'],
       ownPhrasesOnly: true,
+    },
+    dance: {
+      label: 'Танцует. Как умеет.',
+      sheet: 'dance',
+      frames: seq(danceSeq, danceMs),
+      phrases: ['Танцуют все!', 'Ой, ну я в ударе.', 'Ну а шо, я пластичный.', 'Диско, ой вей!'],
     },
     poop: {
       label: 'У него важное дело',

@@ -95,6 +95,14 @@
     "frames": 16,
     "scale": 0.5684
   },
+  "dance": {
+    "file": "sprites/dance.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.607
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,
