@@ -81,6 +81,9 @@ SHEETS = {
     "dance": ("dance.png", 6, 4, 0, {"per_row": True, "row_floor": True, "airborne": [14],
                                      "min_blob": 0.0005, "match_area": "idle",
                                      "match_skin": "idle", "skin_frame": 0}),
+    # смотрит телик: садится 0–5, смотрит и ржёт 6–15, встаёт 16–23 (каждый кадр на пол)
+    "tv": ("tv.png", 6, 4, 0, {"per_row": True, "min_blob": 0.0005, "match_area": "idle",
+                               "match_skin": "idle", "skin_frame": 0}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),

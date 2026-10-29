@@ -103,6 +103,14 @@
     "frames": 24,
     "scale": 0.607
   },
+  "tv": {
+    "file": "sprites/tv.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.5366
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,
