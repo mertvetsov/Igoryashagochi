@@ -25,6 +25,8 @@ function addLog(text) {
 }
 
 function setState(next, manual = false) {
+  const variants = animations[next].variants;   // «Акт любви» — то с куклой, то без
+  if (variants) next = variants[Math.floor(Math.random() * variants.length)];
   state = next;
   current = play(next);
   elapsed = 0;
@@ -275,7 +277,7 @@ function draw() {
   // Реплика посреди анимации (например, «Я на жёстких бизиках!» после таблетки).
   if (a.say && !said && f.frame === a.say.frame) {
     said = true;
-    phrase = a.say.text;
+    phrase = Array.isArray(a.say.text) ? a.say.text[Math.floor(Math.random() * a.say.text.length)] : a.say.text;
     speechAt = elapsed;
   }
   heap.drawPile();

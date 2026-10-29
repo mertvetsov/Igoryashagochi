@@ -28,6 +28,7 @@
     tv:      { src: 'assets/sprites/tv.png',      cols: 6, frames: 24 },
     scratch: { src: 'assets/sprites/scratch.png', cols: 4, frames: 16 },
     scared:  { src: 'assets/sprites/scared.png',  cols: 4, frames: 16 },
+    love2:   { src: 'assets/sprites/love2.png',   cols: 6, frames: 24 },
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -76,6 +77,14 @@
                   250, 250, 350, 250, 450, 350, 350, 500, 350, 350, 350, 700];
   // Акт любви: достаёт куклу и надувает (0–7), обнимашки 8–15 по кругу,
   // кукла сдувается и лопается (16–17), испуг с прыжком и отходняк (18–23).
+  // Другой акт любви, без куклы: отворачивается и садится спиной (0–9),
+  // раскачивается 10–17 три раза, встаёт и поворачивается довольный (18–23).
+  const love2Loop = range(8).map(i => i + 10);
+  const love2LoopMs = [260, 240, 320, 240, 260, 240, 320, 240];
+  const love2Seq = [...range(10), ...love2Loop, ...love2Loop, ...love2Loop, ...range(6).map(i => i + 18)];
+  const love2Ms = [500, 250, 250, 300, 300, 350, 400, 350, 350, 450,
+                   ...love2LoopMs, ...love2LoopMs, ...love2LoopMs,
+                   400, 350, 300, 350, 400, 800];
   const loveLoop = range(8).map(i => i + 8);
   const loveLoopMs = [240, 240, 380, 240, 240, 380, 240, 240];
   const loveSeq = [...range(8), ...loveLoop, ...loveLoop, ...loveLoop, ...range(8).map(i => i + 16)];
@@ -197,9 +206,23 @@
       label: 'Акт любви',
       sheet: 'love',
       frames: seq(loveSeq, loveMs),
+      // играет то с куклой, то сам с собой — как в прошивке
+      variants: ['love', 'love2'],
       // кукла лопается
       shake: { frames: [17], ms: 200, path: SHAKE },
       phrases: ['Ты у меня одна.', 'Только не лопни.', 'Ой, ну шо ты как неродная.'],
+    },
+    love2: {
+      group: 'love',
+      label: 'Акт любви. Сам с собой.',
+      sheet: 'love2',
+      frames: seq(love2Seq, love2Ms),
+      // поворачивается обратно довольный
+      say: { frame: 21, text: ['Ничего не было, ясно?', 'Фух. Как заново родился.', 'Это была зарядка.',
+                               'Ну и шо вы смотрите?', 'Никому ни слова.', 'Сам себя не похвалишь…'] },
+      phrases: ['Не смотрите, я занят.', 'Отвернитесь, ну!', 'Это не то, шо вы думаете.', 'Ой вей, только не входите!',
+                'Мама говорила, ослепну.', 'Ну а шо, мне одиноко.', 'Я сам себе лучший друг.', 'Сеанс любви к себе.'],
+      ownPhrasesOnly: true,
     },
     sleep: {
       label: 'Спит. Храпит.',

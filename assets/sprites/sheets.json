@@ -127,6 +127,14 @@
     "frames": 16,
     "scale": 0.4587
   },
+  "love2": {
+    "file": "sprites/love2.png",
+    "cell": 240,
+    "cols": 6,
+    "rows": 4,
+    "frames": 24,
+    "scale": 0.5433
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,
