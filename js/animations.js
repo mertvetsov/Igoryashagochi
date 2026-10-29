@@ -206,14 +206,11 @@
       label: 'Акт любви',
       sheet: 'love',
       frames: seq(loveSeq, loveMs),
-      // играет то с куклой, то сам с собой — как в прошивке
-      variants: ['love', 'love2'],
       // кукла лопается
       shake: { frames: [17], ms: 200, path: SHAKE },
       phrases: ['Ты у меня одна.', 'Только не лопни.', 'Ой, ну шо ты как неродная.'],
     },
     love2: {
-      group: 'love',
       label: 'Акт любви. Сам с собой.',
       sheet: 'love2',
       frames: seq(love2Seq, love2Ms),

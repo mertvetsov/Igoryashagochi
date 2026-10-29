@@ -6,7 +6,7 @@ const canvas = $('screen'), ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 const assets = {};
-const autoQueue = ['walk', 'hungry', 'eat', 'dance', 'scratch', 'poop', 'tv', 'scared', 'tanks', 'sleep', 'walk', 'sad', 'love', 'sick', 'pill'];
+const autoQueue = ['walk', 'hungry', 'eat', 'dance', 'scratch', 'poop', 'tv', 'scared', 'tanks', 'sleep', 'walk', 'sad', 'love', 'sick', 'pill', 'love2'];
 
 let state = 'idle', current = null, elapsed = 0, auto = true, paused = false, ready = false;
 let speed = Number($('speed').value);   // по умолчанию 1.75× — задано в index.html
@@ -25,8 +25,6 @@ function addLog(text) {
 }
 
 function setState(next, manual = false) {
-  const variants = animations[next].variants;   // «Акт любви» — то с куклой, то без
-  if (variants) next = variants[Math.floor(Math.random() * variants.length)];
   state = next;
   current = play(next);
   elapsed = 0;
