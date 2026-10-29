@@ -111,6 +111,14 @@
     "frames": 24,
     "scale": 0.5366
   },
+  "scratch": {
+    "file": "sprites/scratch.png",
+    "cell": 240,
+    "cols": 4,
+    "rows": 4,
+    "frames": 16,
+    "scale": 0.5126
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,

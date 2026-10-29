@@ -26,6 +26,7 @@
     pill_item: { src: 'assets/sprites/pill_item.png' },   // таблетка 11×7, падает сверху
     dance:   { src: 'assets/sprites/dance.png',   cols: 6, frames: 24 },
     tv:      { src: 'assets/sprites/tv.png',      cols: 6, frames: 24 },
+    scratch: { src: 'assets/sprites/scratch.png', cols: 4, frames: 16 },
     room:    { src: 'assets/sprites/room.png' },
     // куча в углу: кадр = размер (27…66 px в ширину), собирает build_sprites.py
     pile:    { src: 'assets/sprites/pile.png', cols: 6, frames: 6 },
@@ -113,6 +114,12 @@
   const tvSeq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 6, 7, 8, 9, 10, 11, 12, 13, 10, 11, 12, 13,
                  14, 15, 14, 15, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
   const tvMs = tvSeq.map(f => (f <= 5 ? 300 : f <= 9 ? 450 : f <= 13 ? 220 : f <= 15 ? 450 : 260));
+  // Чешет жопу. В листе 16 кадров, но рука почти не двигается: 2 — заводит руку
+  // за спину, 3–14 — одна поза с шумом генератора, 15–16 — возвращает. Берём только
+  // заход (1), самую спокойную тройку 2–3–4 «туда-обратно» четыре раза и выход (14–15).
+  const itch = [2, 3, 4, 3];
+  const scratchSeq = [1, ...itch, ...itch, ...itch, ...itch, 14, 15];
+  const scratchMs = [200, ...Array(16).fill(150), 220, 280];
   // Удар по стеклу: весь экран дёргается и затухает.
   const SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]];
 
@@ -225,6 +232,12 @@
       sheet: 'tv',
       frames: seq(tvSeq, tvMs),
       phrases: ['О, «Камеди» началось.', 'Ахаха, ну дурак!', 'Ой вей, шо творят.', 'Не мешайте, тут самое интересное.'],
+    },
+    scratch: {
+      label: 'Чешет жопу',
+      sheet: 'scratch',
+      frames: seq(scratchSeq, scratchMs),
+      phrases: ['Задумался.', 'Дела житейские.', 'Ой вей, чешется.', 'Ну а шо, имею право.'],
     },
     poop: {
       label: 'У него важное дело',

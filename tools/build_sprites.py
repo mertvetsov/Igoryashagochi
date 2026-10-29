@@ -87,6 +87,10 @@ SHEETS = {
     # первые два кадра ряда (ещё на четвереньках) доводим до масштаба плавно
     "tv": ("tv.png", 6, 4, 0, {"per_row": True, "min_blob": 0.0005, "match_area": "idle",
                                "match_skin": "idle", "skin_frame": 0, "row_fix": [[3, 23, 2]]}),
+    # чешется: кадры почти одинаковые, стоит на месте — совмещаем по ногам,
+    # объём и кожа по статике
+    "scratch": ("scratch.png", 4, 4, 0, {"per_row": True, "register": True, "snap_floor": True,
+                                         "match_area": "idle", "match_skin": "idle", "skin_frame": 0}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),
