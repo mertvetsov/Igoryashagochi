@@ -119,7 +119,7 @@ class Pet {
   played(s) {
     if (s === 'tanks_win') this.addMood(TANKS_MOOD);
     else if (s === 'tanks_lose') this.addMood(-TANKS_MOOD);
-    else if (s === 'love') this.addMood(LOVE_MOOD);
+    else if (s.startsWith('love')) this.addMood(LOVE_MOOD);   // either kind
     else if (s === 'sad') this.addMood(5);
     else if (s === 'dance') this.addMood(DANCE_MOOD);
     else if (s === 'tv') this.addMood(TV_MOOD);
@@ -355,6 +355,7 @@ const BLINK_POSE = 6, BLINK_MS = 110, FIRST_ACTION_MS = 20000, ACTION_MIN_MS = 6
 const NIGHT_AWAKE_MS = 3 * 60000, PET_TICK_MS = 10000, PET_SAVE_MS = 10 * 60000;
 const PILE_STEP_MS = 80, DUST_MS = 70, DUST_FRAMES = 5, DUST_X = 42, DUST_Y = 190, DUST_COLOR = hex('#b9b3a4');
 const POOP_FRAME = 8, SAY_MS = 3500, MENU_IDLE_MS = 5000, IDLE_TALK_IN = 90, BUZZ_FRAME = 10;
+const LOVE2_DONE_FRAME = 21;   // love2: turns back to us, pleased with himself
 const DROP_X = 158, DROP_Y = 192, DROP_FALL_MS = 600, DROP_BOUNCE_MS = 220, NO_DROP = -1000;
 const PANEL_Y = 203, PANEL = [4, 203, 236, 237];
 const CLOCK_COLOR = '#f3e6c4', DATE_COLOR = '#b8b48f';
@@ -372,7 +373,7 @@ const hash = a => {
   a = Math.imul(a ^ a >>> 15, 0x846ca68b);
   return (a ^ a >>> 16) >>> 0;
 };
-const SAY_FOR = { eat: 'feed', sick: 'sick', pill: 'pill', love: 'love', tanks: 'tanks', tanks_win: 'tanks_win',
+const SAY_FOR = { eat: 'feed', sick: 'sick', pill: 'pill', love: 'love', love2: 'love2', tanks: 'tanks', tanks_win: 'tanks_win',
                   tanks_lose: 'tanks_lose', angry: 'woken', hungry: 'hungry', sad: 'sad', poop: 'poop', sleep_in: 'sleep', walk: 'walk',
                   dance: 'dance', tv: 'tv', scratch: 'scratch', scared: 'scared' };
 const nightHour = h => h >= 23 || h < 7;
@@ -506,6 +507,8 @@ class Mode {
     if (this.wakeIfAsleep()) return true;
     if (!this.pet.canPlay()) return false;
     this.queued = -1;
+    // love comes in two kinds: with the doll, or alone with his back to us
+    if (script === 'love' && this.find('love2') >= 0 && Math.random() < 0.5) script = 'love2';
     this.startScript(this.find(script));
     return true;
   }
@@ -644,6 +647,7 @@ class Mode {
       this.petDirty = true;
     }
     if (this.name === 'pill' && !this.buzzSaid && frame === BUZZ_FRAME) { this.buzzSaid = true; this.say('buzz'); }
+    if (this.name === 'love2' && !this.buzzSaid && frame === LOVE2_DONE_FRAME) { this.buzzSaid = true; this.say('love2_done'); }
     this.servicePet();
     this.serviceTop();
     const tod = timeOfHour(wallNow().getHours());
@@ -819,7 +823,7 @@ async function main() {
   const stats = document.getElementById('stats');
   const DOING = { idle: 'стоит', walk: 'нервно ходит', hungry: 'просит есть', eat: 'ест хинкал', sick: 'тошнит',
                   tanks: 'играет в танки', tanks_win: 'победил в танках', tanks_lose: 'проиграл в танки',
-                  love: 'танцует с надувной', sleep_in: 'ложится спать', sleep_snore: 'спит', sleep_out: 'встаёт',
+                  love: 'танцует с надувной', love2: 'любит сам себя', sleep_in: 'ложится спать', sleep_snore: 'спит', sleep_out: 'встаёт',
                   angry: 'злой спросонья', sad: 'плачет', pill: 'пьёт таблетку', poop: 'гадит',
                   dance: 'танцует', tv: 'смотрит телик', scratch: 'чешет жопу', scared: 'испугался' };
   const statusText = () => {
