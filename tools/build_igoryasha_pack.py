@@ -43,6 +43,7 @@ SHEETS = {
     'sick': (6, 24), 'tanks': (6, 24), 'tanks_win': (6, 24), 'tanks_lose': (6, 24),
     'love': (8, 24), 'sleep': (6, 24), 'sad': (6, 24), 'pill': (4, 16),
     'pile': (6, 6),   # кучка в углу: кадр = размер, уже стоит на своём месте на полу
+    'dance': (6, 24), 'tv': (6, 24), 'scratch': (4, 16), 'scared': (4, 16),
 }
 SHEET_IDS = {name: i for i, name in enumerate(SHEETS)}
 
@@ -109,6 +110,18 @@ def scripts():
     walk = steps('walk', rng(24), [450, 170, 170, 170, 170, 170, 280, 170, 170, 170, 170, 170,
                                    170, 170, 170, 170, 170, 280, 170, 170, 170, 170, 170, 450],
                  path=[[0, 0], [1, 0], [6, 44], [7, 44], [17, -44], [18, -44], [23, 0]])
+    # сам по себе, когда ничего не горит (последовательности как в js/animations.js)
+    dance_seq = [*rng(20, 1), *rng(14, 6), 20, 21]
+    dance = steps('dance', dance_seq, [260 if f == 14 else 280 if f in (7, 8, 12) else 320 if f >= 20 else 200
+                                       for f in dance_seq])
+    tv_seq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 6, 7, 8, 9, 10, 11, 12, 13, 10, 11, 12, 13,
+              14, 15, 14, 15, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+    tv = steps('tv', tv_seq, [300 if f <= 5 else 450 if f <= 9 else 220 if f <= 13 else 450 if f <= 15 else 260
+                              for f in tv_seq])
+    itch = [2, 3, 4, 3]
+    scratch = steps('scratch', [1, *itch * 4, 14, 15], [200, *[150] * 16, 220, 280])
+    scared = steps('scared', [1, 2, 3, 3, 4, 5, 6, 7, 8, 9, 6, 7, 10, 11, 12, 13, 14, 15],
+                   [300, 220, 120, 380, 350, 300, 350, 300, 400, 380, 300, 300, 350, 350, 400, 400, 450, 500])
     # статика: один вдох, моргание и повторы — в прошивке
     idle = steps('idle', rng(6), [400, 300, 300, 400, 300, 300])
     # имя, флаги, переходы, шаги; idle обязательно первым
@@ -131,6 +144,10 @@ def scripts():
         ('sad', ENTRY, [], sad),
         ('pill', ENTRY, [], pill),
         ('poop', ENTRY, [], poop),
+        ('dance', ENTRY, [], dance),
+        ('tv', ENTRY, [], tv),
+        ('scratch', ENTRY, [], scratch),
+        ('scared', ENTRY, [], scared),
     ]
 
 
@@ -220,7 +237,33 @@ SAY = {
     'poop': ['Отойдите на минутку.', 'Хинкал был лишний.', 'Ой вей, ну вы чего смотрите.'],
     'sleep': ['Чёт я устал...', 'Ой вей, спать.', 'Разбудите к хинкалу.'],
     'walk': ['Чёт нервно мне.', 'Туда. Сюда. Обратно.', 'Ой вей, шо ж делать-то.', 'Ну ой, ну нервы.'],
+    'dance': ['Танцуют все!', 'Ой, ну я в ударе.', 'Ну а шо, я пластичный.', 'Диско, ой вей!'],
+    'tv': ['О, «Камеди» началось.', 'Ахаха, ну дурак!', 'Ой вей, шо творят.', 'Не мешайте, тут самое интересное.'],
+    'scratch': ['Задумался.', 'Дела житейские.', 'Ой вей, чешется.', 'Ну а шо, имею право.'],
+    'scared': ['Шо это было?!', 'Ой вей! Кто здесь?', 'Ну ой... показалось.', 'Мама...'],
 }
+
+
+TV_BOX = (217, 110, 234, 134)   # x0 y0 x1 y1 вокруг кинескопа телевизора в углу комнаты
+
+
+def tv_screen():
+    """Кинескоп телевизора: x, y, w, h и по строке битовая маска (бит k — столбец x + k).
+    Заливка от центра по светлым пикселям внутри TV_BOX — тёмная рамка корпуса её держит."""
+    room = np.asarray(Image.open(SPRITES / 'room.png').convert('RGB')).astype(int)
+    x0, y0, x1, y1 = TV_BOX
+    lit = room[y0:y1, x0:x1].max(axis=2) >= 0x34
+    seen, todo = np.zeros_like(lit), [((y1 - y0) // 2, (x1 - x0) // 2)]
+    while todo:
+        y, x = todo.pop()
+        if 0 <= y < lit.shape[0] and 0 <= x < lit.shape[1] and lit[y, x] and not seen[y, x]:
+            seen[y, x] = True
+            todo += [(y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)]
+    ys, xs = np.nonzero(seen)
+    sx, sy, w, h = x0 + xs.min(), y0 + ys.min(), xs.max() - xs.min() + 1, ys.max() - ys.min() + 1
+    assert w <= 32
+    rows = [sum(1 << k for k in range(w) if seen[sy - y0 + r, sx - x0 + k]) for r in range(h)]
+    return int(sx), int(sy), int(w), int(h), rows
 
 
 def c_bytes(name, data):
@@ -241,6 +284,7 @@ def build_header():
     pv[(pv == 0) & (pill[..., 3] >= 128)] = 0x0001   # чёрная обводка: 0 занят под «прозрачно»
     pv[pill[..., 3] < 128] = 0
     pill_words = ','.join(f'0x{v:04X}' for v in pv.ravel())
+    tv = tv_screen()
 
     font = ui.glcd()
     glyphs = '\n'.join('  {' + ', '.join(f'0x{c:02X}' for c in ui.glyph_columns(ch, font)) + '},' + f'  // {ch}'
@@ -281,7 +325,10 @@ def build_header():
         f'static const uint16_t IGR_ROOM[] PROGMEM = {{{words}}};\n\n'
         '// Таблетка, падающая сверху в начале «таблетки», RGB565, 0 — прозрачно.\n'
         f'#define IGR_PILL_W {pill.shape[1]}\n#define IGR_PILL_H {pill.shape[0]}\n'
-        f'static const uint16_t IGR_PILL_ITEM[] PROGMEM = {{{pill_words}}};\n')
+        f'static const uint16_t IGR_PILL_ITEM[] PROGMEM = {{{pill_words}}};\n\n'
+        '// Кинескоп телевизора в углу: по строке маска, бит k — столбец IGR_TV_X + k.\n'
+        f'#define IGR_TV_X {tv[0]}\n#define IGR_TV_Y {tv[1]}\n#define IGR_TV_W {tv[2]}\n#define IGR_TV_H {tv[3]}\n'
+        f'static const uint32_t IGR_TV_ROWS[IGR_TV_H] = {{{", ".join(f"0x{r:04X}" for r in tv[4])}}};\n')
     TEXT_HEADER.write_text(
         generated + '#pragma once\n#include <Arduino.h>\n\n'
         '// Своя кириллица в сетке встроенного шрифта: 5 столбцов по 8 бит, бит 0 — верх.\n'

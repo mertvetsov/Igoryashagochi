@@ -32,6 +32,7 @@ const SICK_PILES = 4, SICK_AFTER_S = 3600;
 const HUNGER_PER_H = 100 / 6, TOILET_PER_H = 100 / 5, SLEEP_FACTOR = 0.5;
 const MOOD_HUNGRY_PER_H = -8, MOOD_SICK_PER_H = -10, MOOD_FINE_PER_H = 4;
 const PILL_CURE_MOOD = 10, LOVE_MOOD = 15, TANKS_MOOD = 10, MOOD_FINE_UP_TO = 70;
+const HAPPY = 70, ITCHY = 70, DANCE_MOOD = 3, TV_MOOD = 2, SCARED_MOOD = 3;
 const FED_TOILET = 15, FED_MOOD = 5, FULL = 25, VOMIT_AFTER = 3, VOMIT_HUNGER = 40, VOMIT_MOOD = -20;
 const pileMoodPerHour = p => -(2 * p + p * p);
 
@@ -65,14 +66,32 @@ class Pet {
     else if (epoch - n.pilesHighSince >= SICK_AFTER_S) n.sick = true;
   }
   urgent() { return this.n.toilet >= 100; }
-  choose() {
+  choose(hour = -1, last = null) {
     const n = this.n;
     if (this.urgent()) return 'poop';
     if (n.starvingSince && n.epoch - n.starvingSince >= HYSTERIA_AFTER_S && random(2) === 0) return 'sad';
     if (n.hunger >= HUNGRY) return 'hungry';
     if (n.sick) return random(2) ? 'sick' : 'sad';
     if (n.piles >= SICK_PILES && random(3) === 0) return 'sick';
-    if (n.mood < 30) return random(2) ? 'sad' : 'walk';
+    if (n.mood < 30 && random(2)) return 'sad';
+    return this.pastime(hour, last);
+  }
+  // сам по себе, по весам: ходит, чешется, телик, танец, пугается теней (см. IgoryashaPet::pastime)
+  pastime(hour, last) {
+    const n = this.n, low = n.mood < 30, high = n.mood >= 60, fun = this.canPlay() && !low;
+    const morning = hour >= 5 && hour < 11, evening = hour >= 19 && hour < 23;
+    const dark = hour >= 19 || (hour >= 0 && hour < 5);
+    const pool = [
+      ['walk', low || high ? 2 : 3],
+      ['scratch', (low || high ? 1 : 2) * (n.toilet >= ITCHY ? 3 : 1) + (morning ? 1 : 0)],
+      ['tv', fun ? (high ? 2 : 3) * (evening ? 2 : 1) : 0],
+      ['dance', fun && n.mood >= HAPPY ? 3 : 0],
+      ['scared', dark ? 1 : 0],
+    ].map(([name, w]) => [name, name === last ? 0 : w]);
+    const total = pool.reduce((t, [, w]) => t + w, 0);
+    if (!total) return 'walk';
+    let r = random(total);
+    for (const [name, w] of pool) { if (r < w) return name; r -= w; }
     return 'walk';
   }
   fed() {
@@ -102,6 +121,9 @@ class Pet {
     else if (s === 'tanks_lose') this.addMood(-TANKS_MOOD);
     else if (s === 'love') this.addMood(LOVE_MOOD);
     else if (s === 'sad') this.addMood(5);
+    else if (s === 'dance') this.addMood(DANCE_MOOD);
+    else if (s === 'tv') this.addMood(TV_MOOD);
+    else if (s === 'scared') this.addMood(-SCARED_MOOD);
   }
 }
 
@@ -337,8 +359,22 @@ const DROP_X = 158, DROP_Y = 192, DROP_FALL_MS = 600, DROP_BOUNCE_MS = 220, NO_D
 const PANEL_Y = 203, PANEL = [4, 203, 236, 237];
 const CLOCK_COLOR = '#f3e6c4', DATE_COLOR = '#b8b48f';
 const ITEM_FEED = 0, ITEM_CLEAN = 1, ITEM_PILL = 2, ITEM_LOVE = 3, ITEM_TANKS = 4;
+const AWAY_MS = 2 * 3600 * 1000, EAT_DANCE_IN = 3;
+// телик: пока сидит к нему лицом, на кинескопе картинка — сцена, фигура, развёртка, снег
+const TV_FROM = 4, TV_TO = 17, TV_MS = 90, TV_SCENE_TICKS = 8;
+const TV_SCENES = [[[70, 110, 170], [225, 190, 150]], [[60, 140, 80], [235, 235, 220]], [[185, 95, 60], [250, 215, 120]],
+                   [[40, 40, 65], [200, 200, 235]], [[155, 150, 175], [70, 60, 90]]];
+// удар кулаком в стекло и испуг трясут комнату за ним
+const BANG_FRAMES = [5, 7], STARTLE_FRAME = 3, SHAKE_MS = 140;
+const BANG_SHAKE = [[3, -1], [-3, 1], [2, 1], [-2, -1], [1, 0], [-1, 0]], STARTLE_SHAKE = [[0, -2], [1, 1], [-1, 0]];
+const hash = a => {
+  a = Math.imul(a ^ a >>> 16, 0x7feb352d);
+  a = Math.imul(a ^ a >>> 15, 0x846ca68b);
+  return (a ^ a >>> 16) >>> 0;
+};
 const SAY_FOR = { eat: 'feed', sick: 'sick', pill: 'pill', love: 'love', tanks: 'tanks', tanks_win: 'tanks_win',
-                  tanks_lose: 'tanks_lose', angry: 'woken', hungry: 'hungry', sad: 'sad', poop: 'poop', sleep_in: 'sleep', walk: 'walk' };
+                  tanks_lose: 'tanks_lose', angry: 'woken', hungry: 'hungry', sad: 'sad', poop: 'poop', sleep_in: 'sleep', walk: 'walk',
+                  dance: 'dance', tv: 'tv', scratch: 'scratch', scared: 'scared' };
 const nightHour = h => h >= 23 || h < 7;
 
 class Mode {
@@ -353,6 +389,7 @@ class Mode {
     this.queued = -1; this.sayUntil = 0; this.nextSay = null; this.buzzSaid = false;
     this.menuSel = 0; this.menuOn = 0; this.menuAt = 0; this.pileStepAt = 0; this.dust = 0; this.dustAt = 0;
     this.blinking = false; this.blinkAt = 0;
+    this.lastChoice = null; this.touchAt = millis(); this.tvTick = -1; this.shake = [0, 0];
     this.loadPet();
     this.startScript(0);
     this.nextActionAt = millis() + FIRST_ACTION_MS;
@@ -383,13 +420,19 @@ class Mode {
       if (!this.hud.saying() && !this.hud.menu && random(IDLE_TALK_IN) === 0) this.say('idle');
       return;
     }
-    this.startScript(Math.max(0, this.find(this.pet.choose())));
+    this.lastChoice = this.pet.choose(wallNow().getHours(), this.lastChoice);
+    this.startScript(Math.max(0, this.find(this.lastChoice)));
   }
   finishScript() {
     const sc = this.scripts[this.script];
     this.pet.played(sc.name);
     if (this.queued >= 0) { const q = this.queued; this.queued = -1; this.startScript(q); return; }
     if (sc.next.length) { this.startScript(this.find(sc.next[random(sc.next.length)])); return; }
+    // счастлив — пляшет: после победы через раз, после еды иногда
+    if ((sc.name === 'tanks_win' && random(2)) || (sc.name === 'eat' && this.pet.n.mood >= HAPPY && !random(EAT_DANCE_IN))) {
+      this.startScript(this.find('dance'));
+      return;
+    }
     if (sc.name === 'sleep_in' || sc.name === 'sleep_snore') {
       this.asleep = this.shouldSleep();
       this.startScript(this.find(this.asleep ? 'sleep_snore' : 'sleep_out'));
@@ -423,6 +466,14 @@ class Mode {
     this.startScript(this.find('sleep_out'));
     this.queued = this.find('angry');
     this.petDirty = true;
+    return true;
+  }
+  // первое касание после долгого перерыва пугает его (пока просто стоит) и на это и уходит
+  startleIfAway() {
+    const away = millis() - this.touchAt >= AWAY_MS;
+    this.touchAt = millis();
+    if (!away || this.script !== 0 || this.hud.menu) return false;
+    this.startScript(this.find('scared'));
     return true;
   }
   sleeping() { return this.asleep || this.name === 'sleep_in' || this.name === 'sleep_snore'; }
@@ -483,7 +534,8 @@ class Mode {
     this.apply(this.menuSel);
   }
   menuTouch() {
-    if (this.hud.menu) { this.menuAt = millis(); return false; }
+    if (this.hud.menu) { this.menuAt = millis(); this.touchAt = millis(); return false; }
+    if (this.startleIfAway()) return true;
     this.wakeIfAsleep();
     this.menuNext();
     return true;
@@ -506,7 +558,7 @@ class Mode {
   }
   // кнопки ухода на странице: то же, что выбрать пункт в меню
   care(item) {
-    if (this.wakeIfAsleep()) return;
+    if (this.startleIfAway() || this.wakeIfAsleep()) return;
     if (!(this.menuEnabled() >> item & 1)) return;
     this.hud.hideMenu();
     this.apply(item);
@@ -598,9 +650,33 @@ class Mode {
     if (tod !== this.light.time) this.light.set(tod);
     const p = this.current();
     this.light.update(millis(), this.script === this.find('tanks') && p.frame >= 10);
+    this.tvTick = this.name === 'tv' && p.frame >= TV_FROM && p.frame <= TV_TO ? Math.floor(millis() / TV_MS) : -1;
+    this.shake = this.shakeOf(p);
     this.syncPile();
     this.serviceDust();
     this.hud.set(Math.floor(100 - this.pet.n.hunger + 0.5), Math.floor(this.pet.n.mood + 0.5), this.pet.n.sick);
+  }
+  shakeOf(p) {
+    const scared = this.name === 'scared', steps = this.scripts[this.script].steps;
+    let path = null;
+    if (p.sheet === 'hungry' && BANG_FRAMES.includes(p.frame)) path = BANG_SHAKE;
+    else if (scared && p.frame === STARTLE_FRAME && this.step && steps[this.step - 1][1] !== STARTLE_FRAME) path = STARTLE_SHAKE;
+    const t = millis() - this.stepStart;
+    return path && t < SHAKE_MS ? path[Math.floor(t * path.length / SHAKE_MS)] : [0, 0];
+  }
+  // пиксель картинки телика tvTick в x, y кинескопа (как IgoryashaMode::tvPixel)
+  tvPixel(x, y) {
+    const tick = this.tvTick, h = hash(Math.imul(Math.floor(tick / TV_SCENE_TICKS), 7919) + 13);
+    const [bg, fg] = TV_SCENES[h % 5], j = hash(Math.imul(tick, 31) + 7), H = IGR.tv.h;
+    const fx = 2 + (h >>> 4) % 6 + j % 3 - 1, fy = 5 + (h >>> 8) % 6 + (j >>> 2) % 3 - 1;
+    const fw = 4 + (h >>> 12) % 4, fh = 6 + (h >>> 16) % 6;
+    const c = x >= fx && x < fx + fw && y >= fy && y < fy + fh ? fg : bg;
+    let k = 112 - Math.trunc(y * 32 / H);
+    if (y & 1) k = Math.trunc(k * 85 / 100);
+    let add = 0;
+    if (y === tick * 2 % (H + 6)) add += 30;
+    if ((hash(Math.imul(tick, 977) + y * 31 + x) & 15) === 0) add += 50;
+    return c.map(v => Math.max(0, Math.min(255, Math.trunc(v * k / 100) + add)));
   }
   draw(ctx) {
     const cell = (name, f, x) => {
@@ -609,6 +685,16 @@ class Mode {
     };
     ctx.drawImage(this.img.room, 0, 0);
     if (this.pileShown) cell('pile', Math.min(this.pileShown, 6) - 1, 0);
+    const [sx, sy] = this.shake;
+    if (sx || sy) {   // комната над плашкой часов сдвинута, край тянется в щель
+      const bg = ctx.getImageData(0, 0, 240, PANEL_Y), src = new Uint32Array(bg.data.buffer.slice(0));
+      const out = new Uint32Array(bg.data.buffer);
+      for (let y = 0; y < PANEL_Y; y++) {
+        const ry = Math.max(0, Math.min(PANEL_Y - 1, y - sy));
+        for (let x = 0; x < 240; x++) out[y * 240 + x] = src[ry * 240 + Math.max(0, Math.min(239, x - sx))];
+      }
+      ctx.putImageData(bg, 0, 0);
+    }
     const dy = this.dropY();
     if (dy !== NO_DROP) ctx.drawImage(this.img.pill_item, DROP_X, dy);
     const p = this.current();
@@ -619,6 +705,15 @@ class Mode {
 
     const data = ctx.getImageData(0, 0, 240, 240), px = data.data;
     this.light.apply(px);
+    if (this.tvTick >= 0) {   // телик светится: картинка поверх света (перед ним он не стоит)
+      const { x: tx, y: ty, w, h, rows } = IGR.tv;
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          if (!(rows[y] >> x & 1)) continue;
+          const o = ((ty + y + sy) * 240 + tx + x + sx) * 4;
+          [px[o], px[o + 1], px[o + 2]] = this.tvPixel(x, y);
+        }
+    }
     if (this.dust) {
       const DIRS = [[3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2], [0, -3], [2, -2]], r = this.dust + 1;
       for (const [ddx, ddy] of DIRS) {
@@ -725,7 +820,8 @@ async function main() {
   const DOING = { idle: 'стоит', walk: 'нервно ходит', hungry: 'просит есть', eat: 'ест хинкал', sick: 'тошнит',
                   tanks: 'играет в танки', tanks_win: 'победил в танках', tanks_lose: 'проиграл в танки',
                   love: 'танцует с надувной', sleep_in: 'ложится спать', sleep_snore: 'спит', sleep_out: 'встаёт',
-                  angry: 'злой спросонья', sad: 'плачет', pill: 'пьёт таблетку', poop: 'гадит' };
+                  angry: 'злой спросонья', sad: 'плачет', pill: 'пьёт таблетку', poop: 'гадит',
+                  dance: 'танцует', tv: 'смотрит телик', scratch: 'чешет жопу', scared: 'испугался' };
   const statusText = () => {
     const n = mode.pet.n;
     if (mode.sleeping()) return 'Спит. Любая кнопка его разбудит — и он будет злой.';

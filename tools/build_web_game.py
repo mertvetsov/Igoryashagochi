@@ -60,6 +60,7 @@ def main():
         'say': say,
         'weekdays': pack.WEEKDAYS,
         'months': pack.MONTHS,
+        'tv': dict(zip(('x', 'y', 'w', 'h', 'rows'), pack.tv_screen())),
     }
     GAME.mkdir(exist_ok=True)
     (GAME / 'data.js').write_text(
