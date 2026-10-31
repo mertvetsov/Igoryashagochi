@@ -32,8 +32,8 @@ const SICK_PILES = 4, SICK_AFTER_S = 3600;
 const HUNGER_PER_H = 100 / 6, TOILET_PER_H = 100 / 5, SLEEP_FACTOR = 0.5;
 const MOOD_HUNGRY_PER_H = -8, MOOD_SICK_PER_H = -10, MOOD_FINE_PER_H = 4;
 const PILL_CURE_MOOD = 10, LOVE_MOOD = 15, TANKS_MOOD = 10, MOOD_FINE_UP_TO = 70;
-const WORKOUT_MOOD = 5;
-const HAPPY = 70, ITCHY = 70, DANCE_MOOD = 3, TV_MOOD = 2, SCARED_MOOD = 3;
+const WORKOUT_MOOD = 5, SLAP_MOOD = 3;
+const HAPPY = 75, ITCHY = 70, DANCE_MOOD = 3, TV_MOOD = 2, SCARED_MOOD = 3;
 const FED_TOILET = 15, FED_MOOD = 5, FULL = 25, VOMIT_AFTER = 3, VOMIT_HUNGER = 40, VOMIT_MOOD = -20;
 const pileMoodPerHour = p => -(2 * p + p * p);
 
@@ -46,6 +46,8 @@ class Pet {
   // сколько дней живёт, сегодня — первый
   days() { const n = this.n; return n.born && n.epoch >= n.born ? Math.floor((n.epoch - n.born) / 86400) + 1 : 1; }
   addMood(d) { this.n.mood = clamp100(this.n.mood + d); }
+  // свои занятия поднимают настроение не выше «всё хорошо» (70): остальное — от заботы
+  addOwnMood(d) { if (this.n.mood < MOOD_FINE_UP_TO) this.addMood(Math.min(d, MOOD_FINE_UP_TO - this.n.mood)); }
   tick(epoch, asleep) {
     const n = this.n;
     if (!n.born) n.born = epoch;
@@ -82,17 +84,15 @@ class Pet {
     if (n.mood < 30 && random(2)) return 'sad';
     return this.pastime(hour, last);
   }
-  // сам по себе, по весам: ходит, чешется, телик, танец, пугается теней (см. IgoryashaPet::pastime)
+  // сам по себе, по весам: ходит, чешется, телик, танец (см. IgoryashaPet::pastime); испуги — от событий
   pastime(hour, last) {
     const n = this.n, low = n.mood < 30, high = n.mood >= 60, fun = this.canPlay() && !low;
     const morning = hour >= 5 && hour < 11, evening = hour >= 19 && hour < 23;
-    const dark = hour >= 19 || (hour >= 0 && hour < 5);
     const pool = [
       ['walk', low || high ? 2 : 3],
       ['scratch', (low || high ? 1 : 2) * (n.toilet >= ITCHY ? 3 : 1) + (morning ? 1 : 0)],
       ['tv', fun ? (high ? 2 : 3) * (evening ? 2 : 1) : 0],
       ['dance', fun && n.mood >= HAPPY ? 3 : 0],
-      ['scared', dark ? 1 : 0],
     ].map(([name, w]) => [name, name === last ? 0 : w]);
     const total = pool.reduce((t, [, w]) => t + w, 0);
     if (!total) return 'walk';
@@ -131,10 +131,11 @@ class Pet {
     else if (s === 'tanks_lose') this.addMood(-TANKS_MOOD);
     else if (s.startsWith('love')) this.addMood(LOVE_MOOD);   // either kind
     else if (s === 'sad') this.addMood(5);
-    else if (s === 'dance') this.addMood(DANCE_MOOD);
-    else if (s === 'tv') this.addMood(TV_MOOD);
+    else if (s === 'dance') this.addOwnMood(DANCE_MOOD);
+    else if (s === 'tv') this.addOwnMood(TV_MOOD);
     else if (s === 'scared') this.addMood(-SCARED_MOOD);
-    else if (s === 'squat_out') this.addMood(WORKOUT_MOOD);
+    else if (s === 'squat_out') this.addOwnMood(WORKOUT_MOOD);
+    else if (s === 'slap') this.addMood(SLAP_MOOD);
   }
 }
 
@@ -404,7 +405,17 @@ const POOP_FRAME = 8, SAY_MS = 3500, MENU_IDLE_MS = 5000, IDLE_TALK_IN = 90, BUZ
 const LOVE2_DONE_FRAME = 21;   // love2: turns back to us, pleased with himself
 // зарядка: всё утро, примерно раз в полчаса — 3–4 приседа со счётом, последний
 // провальный, потом враньё про спорт (кадры листа squat)
-const SQUAT_COUNT_FRAME = 3, SQUAT_DONE_FRAME = 6, WORKOUT_FROM = 6, WORKOUT_TO = 11, WORKOUT_GAP_MS = 30 * 60000;
+// случайные события (см. IgoryashaMode: pickEvent, critterNow, serviceEvent)
+const EV_NONE = 0, EV_KNOCK = 1, EV_BLINK = 2, EV_ROACH = 3, EV_PIGEON = 4, EV_STOMP = 5, EVENTS = ['', 'knock', 'blink', 'roach', 'pigeon'];
+const EVENT_FIRST_MS = 3 * 60000, EVENT_MIN_MS = 12 * 60000, EVENT_MAX_MS = 25 * 60000;
+const KNOCK_EVERY_MS = 450, KNOCK_SHAKE_MS = 120, KNOCK_MS = 1500, KNOCK_SHAKE = [[0, 2], [0, -1], [1, 1], [0, 0]];
+const THUD_X = 140, THUD_Y = 104, THUD_MS = 240;   // штрихи от батареи на каждый стук (THUD_AT в build_critters.py)
+const LIGHTS_OFF1 = 150, LIGHTS_ON = 300, LIGHTS_OFF2 = 650, LIGHTS_MS = 800;
+// касание, пока бежит таракан: он замирает, Игоряша прыгает (stomp, лист таблетки) и на кадре 13 давит
+const STOMP_LAND_FRAME = 13, STOMP_MAX_MS = 3000;
+const ROACH_X0 = 236, ROACH_X1 = -22, ROACH_Y = 185, ROACH_SPOT = 175, ROACH_MS = 5200, ROACH_STEP_MS = 80, SPLAT_MS = 8000;
+const PIGEON_X = 220, PIGEON_Y = 79, PIGEON_IN_MS = 600, PIGEON_SIT_MS = 9000, PIGEON_OUT_MS = 700, PIGEON_NOD_MS = 650;
+const SQUAT_COUNT_FRAME = 3, SQUAT_DONE_FRAME = 6, WORKOUT_FROM = 7, WORKOUT_TO = 11, WORKOUT_GAP_MS = 30 * 60000;
 const DROP_X = 158, DROP_Y = 192, DROP_FALL_MS = 600, DROP_BOUNCE_MS = 220, NO_DROP = -1000;
 const PANEL_Y = 203, PANEL = [4, 203, 236, 237];
 const CLOCK_COLOR = '#f3e6c4', DATE_COLOR = '#b8b48f';
@@ -439,7 +450,9 @@ class Mode {
     this.queued = -1; this.sayUntil = 0; this.nextSay = null; this.buzzSaid = false;
     this.menuSel = 0; this.menuOn = 0; this.menuAt = 0; this.pileStepAt = 0; this.dust = 0; this.dustAt = 0;
     this.blinking = false; this.blinkAt = 0;
-    this.lastChoice = null; this.squatsLeft = 0; this.squatCount = 0; this.saidStep = -1; this.workoutAt = 0; this.touchAt = millis(); this.tvTick = -1; this.shake = [0, 0];
+    this.lastChoice = null; this.squatsLeft = 0; this.squatCount = 0; this.saidStep = -1; this.workoutAt = 0; this.touchAt = millis();
+    this.event = EV_NONE; this.eventAt = 0; this.nextEventAt = millis() + EVENT_FIRST_MS; this.reacted = false;
+    this.critter = null; this.splat = null; this.splatUntil = 0; this.dark = false; this.tvTick = -1; this.shake = [0, 0];
     this.loadPet();
     this.startScript(0);
     this.nextActionAt = millis() + FIRST_ACTION_MS;
@@ -481,6 +494,11 @@ class Mode {
   decide() {
     if (this.shouldSleep()) { this.startScript(this.find('sleep_in')); return; }
     if (this.pet.urgent()) { this.startScript(this.find('poop')); return; }
+    if (!this.event && millis() >= this.nextEventAt && !this.hud.menu && !this.hud.stats) {
+      this.nextEventAt = millis() + random(EVENT_MIN_MS, EVENT_MAX_MS);
+      const e = this.pickEvent();
+      if (e) this.startEvent(e);
+    }
     if (millis() < this.nextActionAt) {
       this.startScript(0);
       if (!this.hud.saying() && !this.hud.menu && random(IDLE_TALK_IN) === 0) this.say('idle');
@@ -489,6 +507,91 @@ class Mode {
     if (this.workoutDue()) { this.startWorkout(); return; }
     this.lastChoice = this.pet.choose(wallNow().getHours(), this.lastChoice);
     this.startScript(Math.max(0, this.find(this.lastChoice)));
+  }
+  // ---- случайные события ----
+  // по часу: соседи днём и вечером, свет в темноте, таракан всегда (чаще при кучках
+  // и в темноте), голубь днём
+  pickEvent() {
+    const h = wallNow().getHours(), dark = this.light.time === NIGHT;
+    const w = [0, h >= 9 && h < 23 ? 1 : 0, dark ? 2 : 0, 2 + (this.pet.n.piles ? 3 : 0) + (dark ? 1 : 0), h >= 7 && h < 18 ? 3 : 0];
+    let r = random(w.reduce((a, b) => a + b, 0));
+    for (let e = 1; e < 5; e++) { if (r < w[e]) return e; r -= w[e]; }
+    return EV_NONE;
+  }
+  startEvent(e) { this.event = e; this.eventAt = millis(); this.reacted = false; }
+  // таракан или голубь сейчас: { im, frame, x, y } или null
+  critterNow(now) {
+    const t = now - this.eventAt;
+    if (this.event === EV_STOMP) return this.stomped;
+    if (this.event === EV_ROACH && t < ROACH_MS)
+      return { im: 'roach', frame: Math.floor(t / ROACH_STEP_MS) % 2, x: ROACH_X0 + Math.trunc((ROACH_X1 - ROACH_X0) * t / ROACH_MS),
+               y: ROACH_Y + Math.floor(t / 300) % 2 };
+    if (this.event !== EV_PIGEON) return null;
+    if (t < PIGEON_IN_MS) {
+      const k = PIGEON_IN_MS - t;
+      return { im: 'pigeon', frame: 2, x: PIGEON_X + Math.trunc(18 * k / PIGEON_IN_MS), y: PIGEON_Y - Math.trunc(30 * k / PIGEON_IN_MS) };
+    }
+    if (t < PIGEON_IN_MS + PIGEON_SIT_MS)
+      return { im: 'pigeon', frame: Math.floor(t / PIGEON_NOD_MS) % 3 === 2 ? 1 : 0, x: PIGEON_X, y: PIGEON_Y };
+    if (t < PIGEON_IN_MS + PIGEON_SIT_MS + PIGEON_OUT_MS) {
+      const k = t - PIGEON_IN_MS - PIGEON_SIT_MS;
+      return { im: 'pigeon', frame: 2, x: PIGEON_X + Math.trunc(20 * k / PIGEON_OUT_MS), y: PIGEON_Y - Math.trunc(50 * k / PIGEON_OUT_MS) };
+    }
+    return null;
+  }
+  thudNow(now) {
+    const k = now - this.eventAt;
+    if (this.event !== EV_KNOCK || Math.floor(k / KNOCK_EVERY_MS) >= 3 || k % KNOCK_EVERY_MS >= THUD_MS) return null;
+    return { im: 'thud', frame: k % KNOCK_EVERY_MS < THUD_MS / 2 ? 0 : 1, x: THUD_X, y: THUD_Y };
+  }
+  darkNow(now) {
+    const t = now - this.eventAt;
+    return this.event === EV_BLINK && ((t >= LIGHTS_OFF1 && t < LIGHTS_ON) || (t >= LIGHTS_OFF2 && t < LIGHTS_MS));
+  }
+  // конец события и его реакция: стучит в ответ соседям, пугается темноты и таракана, здоровается с голубем
+  serviceEvent(now) {
+    const t = now - this.eventAt;
+    if (this.event === EV_KNOCK && t >= KNOCK_MS) {
+      this.event = EV_NONE; this.nextSay = 'knock'; this.startScript(this.find('angry'));
+    } else if (this.event === EV_BLINK && t >= LIGHTS_MS) {
+      this.event = EV_NONE; this.nextSay = 'blink'; this.startScript(this.find('scared'));
+    } else if (this.event === EV_ROACH) {
+      if (!this.reacted && this.critter && this.critter.x <= ROACH_SPOT) {
+        this.reacted = true;
+        if (this.script === 0) { this.nextSay = 'roach'; this.startScript(this.find('scared')); } else this.say('roach');
+      }
+      if (t >= ROACH_MS) this.event = EV_NONE;
+    } else if (this.event === EV_STOMP) {
+      const jumping = this.name === 'stomp';
+      if (!jumping || t >= STOMP_MAX_MS || this.current().frame === STOMP_LAND_FRAME) this.squash();
+    } else if (this.event === EV_PIGEON) {
+      if (!this.reacted && t >= PIGEON_IN_MS) { this.reacted = true; if (!this.hud.saying() && random(2)) this.say('pigeon'); }
+      if (t >= PIGEON_IN_MS + PIGEON_SIT_MS + PIGEON_OUT_MS) this.event = EV_NONE;
+    }
+  }
+  // касание, пока бежит таракан: замирает, он прыгает на него (без прыжка в паке — давит сразу)
+  slap() {
+    this.stomped = this.critter;
+    if (this.find('stomp') <= 0) { this.squash(); return; }
+    this.startEvent(EV_STOMP);
+    this.queued = -1;
+    this.startScript(this.find('stomp'));
+  }
+  // приземлился: таракан раздавлен и полежит
+  squash() {
+    const s = this.stomped;
+    this.splat = { im: 'splat', frame: 0, x: s.x, y: s.y + this.img.roach.height - this.img.splat.height };
+    this.splatUntil = millis() + SPLAT_MS;
+    this.event = EV_NONE; this.critter = null;
+    this.pet.played('slap'); this.petDirty = true;
+    this.say('slap');
+  }
+  // для проверки из консоли: igoryasha.play('roach')
+  play(name) {
+    const e = EVENTS.indexOf(name);
+    if (e > 0) this.startEvent(e);
+    else if (name === 'squat') this.startWorkout();
+    else if (this.find(name) > 0) this.startScript(this.find(name));
   }
   finishScript() {
     const sc = this.scripts[this.script];
@@ -613,6 +716,7 @@ class Mode {
     this.apply(this.menuSel);
   }
   menuTouch() {
+    if (this.event === EV_ROACH && this.critter) { this.touchAt = millis(); this.slap(); return true; }
     if (this.hud.menu) { this.menuAt = millis(); this.touchAt = millis(); return false; }
     if (this.hud.stats) { this.touchAt = millis(); this.hud.hideStats(); return true; }
     if (this.startleIfAway()) return true;
@@ -739,6 +843,11 @@ class Mode {
     const p = this.current();
     this.light.update(millis(), this.script === this.find('tanks') && p.frame >= 10);
     this.tvTick = this.name === 'tv' && p.frame >= TV_FROM && p.frame <= TV_TO ? Math.floor(millis() / TV_MS) : -1;
+    this.serviceEvent(millis());
+    this.critter = this.critterNow(millis());
+    this.thud = this.thudNow(millis());
+    if (this.splat && millis() >= this.splatUntil) this.splat = null;
+    this.dark = this.darkNow(millis());
     this.shake = this.shakeOf(p);
     this.syncPile();
     this.serviceDust();
@@ -748,9 +857,14 @@ class Mode {
     const scared = this.name === 'scared', steps = this.scripts[this.script].steps;
     let path = null;
     if (p.sheet === 'hungry' && BANG_FRAMES.includes(p.frame)) path = BANG_SHAKE;
+    else if (this.name === 'stomp' && p.frame === STOMP_LAND_FRAME) path = BANG_SHAKE;   // приземлился на таракана
     else if (scared && p.frame === STARTLE_FRAME && this.step && steps[this.step - 1][1] !== STARTLE_FRAME) path = STARTLE_SHAKE;
     const t = millis() - this.stepStart;
-    return path && t < SHAKE_MS ? path[Math.floor(t * path.length / SHAKE_MS)] : [0, 0];
+    if (path && t < SHAKE_MS) return path[Math.floor(t * path.length / SHAKE_MS)];
+    const k = millis() - this.eventAt;   // соседи стучат: толчок на каждый стук
+    if (this.event === EV_KNOCK && Math.floor(k / KNOCK_EVERY_MS) < 3 && k % KNOCK_EVERY_MS < KNOCK_SHAKE_MS)
+      return KNOCK_SHAKE[Math.floor(k % KNOCK_EVERY_MS * 4 / KNOCK_SHAKE_MS)];
+    return [0, 0];
   }
   // пиксель картинки телика tvTick в x, y кинескопа (как IgoryashaMode::tvPixel)
   tvPixel(x, y) {
@@ -773,6 +887,10 @@ class Mode {
     };
     ctx.drawImage(this.img.room, 0, 0);
     if (this.pileShown) cell('pile', Math.min(this.pileShown, 6) - 1, 0);
+    for (const c of [this.splat, this.critter, this.thud]) if (c) {   // живность — в слое комнаты, трясётся вместе с ней
+      const im = this.img[c.im], w = im.width / IGR.critters[c.im];
+      ctx.drawImage(im, c.frame * w, 0, w, im.height, c.x, c.y, w, im.height);
+    }
     const [sx, sy] = this.shake;
     if (sx || sy) {   // комната над плашкой часов сдвинута, край тянется в щель
       const bg = ctx.getImageData(0, 0, 240, PANEL_Y), src = new Uint32Array(bg.data.buffer.slice(0));
@@ -802,6 +920,8 @@ class Mode {
           [px[o], px[o + 1], px[o + 2]] = this.tvPixel(x, y);
         }
     }
+    if (this.dark)   // свет погас: четверть яркости над плашкой часов
+      for (let o = 0; o < 240 * PANEL_Y * 4; o += 4) { px[o] >>= 2; px[o + 1] >>= 2; px[o + 2] >>= 2; }
     if (this.dust) {
       const DIRS = [[3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2], [0, -3], [2, -2]], r = this.dust + 1;
       for (const [ddx, ddy] of DIRS) {
@@ -849,7 +969,7 @@ function iconPixels(im, dim) {
 }
 
 async function main() {
-  const names = [...Object.keys(IGR.sheets), 'room', 'pill_item'];
+  const names = [...Object.keys(IGR.sheets), 'room', 'pill_item', ...Object.keys(IGR.critters)];
   const images = Object.fromEntries(await Promise.all(names.map(async n => [n, await loadImage(`sprites/${n}.png`)])));
   // комната с плашкой под часами, как IGR_ROOM в прошивке
   const room = document.createElement('canvas');
@@ -910,7 +1030,8 @@ async function main() {
                   love: 'танцует с надувной', love2: 'любит сам себя', sleep_in: 'ложится спать', sleep_snore: 'спит', sleep_out: 'встаёт',
                   angry: 'злой спросонья', sad: 'плачет', pill: 'пьёт таблетку', poop: 'гадит',
                   dance: 'танцует', tv: 'смотрит телик', scratch: 'чешет жопу', scared: 'испугался',
-                  squat: 'делает зарядку', squat_out: 'делает зарядку' };
+                  squat: 'делает зарядку', squat_out: 'делает зарядку',
+                  stomp: 'прыгает на таракана' };
   const statusText = () => {
     const n = mode.pet.n;
     if (mode.sleeping()) return 'Спит. Любая кнопка его разбудит — и он будет злой.';

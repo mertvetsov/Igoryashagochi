@@ -1,5 +1,5 @@
 'use strict';
-const { CELL, sheets, animations, play, lighting, timeOfDay, commonPhrases, heapConfig } = window.IGORYASHA;
+const { CELL, sheets, animations, play, lighting, timeOfDay, commonPhrases, heapConfig, randomEvents } = window.IGORYASHA;
 const COMMON_SHARE = 0.35;   // доля коронных фраз среди реплик
 const $ = id => document.getElementById(id);
 const canvas = $('screen'), ctx = canvas.getContext('2d');
@@ -14,6 +14,109 @@ let last = 0, phrase = '', speechAt = 0, queueIndex = 0, events = [];
 let said = false;  // реплика a.say уже прозвучала в этом показе
 let heap = null, pooped = false;   // куча в углу (js/heap.js) и «уже сходил в этом показе»
 let cracks = null, lastStep = -1;  // трещины на стекле (js/cracks.js) и шаг, на котором уже ударил
+
+// Случайные события — свой слой поверх анимации, со своими часами (скорость и пауза
+// те же). Тайминги как в прошивке (IgoryashaMode): стук, свет, таракан, голубь.
+const KNOCK_EVERY_MS = 450, KNOCK_SHAKE_MS = 120, KNOCK_MS = 1500, KNOCK_SHAKE = [[0, 2], [0, -1], [1, 1], [0, 0]];
+const THUD_X = 140, THUD_Y = 104, THUD_MS = 240;   // штрихи от батареи на каждый стук (THUD_AT в build_critters.py)
+const LIGHTS_OFF1 = 150, LIGHTS_ON = 300, LIGHTS_OFF2 = 650, LIGHTS_MS = 800;
+const ROACH_X0 = 236, ROACH_X1 = -22, ROACH_Y = 185, ROACH_SPOT = 175, ROACH_MS = 5200, ROACH_STEP_MS = 80, SPLAT_MS = 8000;
+const PIGEON_X = 220, PIGEON_Y = 79, PIGEON_IN_MS = 600, PIGEON_SIT_MS = 9000, PIGEON_OUT_MS = 700, PIGEON_NOD_MS = 650;
+const STOMP_LAND_FRAME = 13;   // топ по таракану: на этом кадре он приземлился и таракан раздавлен
+const AUTO_EVENT_MS = [20000, 45000];   // в автожизни — событие раз в столько (в песочнице чаще, чем в прошивке)
+let ev = null, splat = null, nextEventIn = AUTO_EVENT_MS[0];
+const pickOne = list => list[Math.floor(Math.random() * list.length)];
+
+function startEvent(name) {
+  ev = { name, t: 0, reacted: false };
+  addLog(randomEvents[name].label);
+}
+
+// Таракан или голубь в момент t события: { sprite, frame, x, y } или null.
+function critter() {
+  if (!ev) return null;
+  const t = ev.t;
+  if (ev.name === 'stomp') return ev.roach;
+  if (ev.name === 'roach' && t < ROACH_MS)
+    return { sprite: 'roach', frame: Math.floor(t / ROACH_STEP_MS) % 2,
+             x: ROACH_X0 + Math.trunc((ROACH_X1 - ROACH_X0) * t / ROACH_MS), y: ROACH_Y + Math.floor(t / 300) % 2 };
+  if (ev.name !== 'pigeon') return null;
+  if (t < PIGEON_IN_MS) {
+    const k = (PIGEON_IN_MS - t) / PIGEON_IN_MS;
+    return { sprite: 'pigeon', frame: 2, x: PIGEON_X + Math.trunc(18 * k), y: PIGEON_Y - Math.trunc(30 * k) };
+  }
+  if (t < PIGEON_IN_MS + PIGEON_SIT_MS)
+    return { sprite: 'pigeon', frame: Math.floor(t / PIGEON_NOD_MS) % 3 === 2 ? 1 : 0, x: PIGEON_X, y: PIGEON_Y };
+  if (t < PIGEON_IN_MS + PIGEON_SIT_MS + PIGEON_OUT_MS) {
+    const k = (t - PIGEON_IN_MS - PIGEON_SIT_MS) / PIGEON_OUT_MS;
+    return { sprite: 'pigeon', frame: 2, x: PIGEON_X + Math.trunc(20 * k), y: PIGEON_Y - Math.trunc(50 * k) };
+  }
+  return null;
+}
+
+function say(text) { phrase = text; speechAt = elapsed; }
+
+// Реакция и конец события: стучит в ответ соседям, пугается темноты и таракана, здоровается с голубем.
+function serviceEvent(dt) {
+  if (splat && (splat.left -= dt) <= 0) splat = null;
+  if (!ev) return;
+  ev.t += dt;
+  const e = randomEvents[ev.name], t = ev.t;
+  const react = () => { setState(e.react); say(pickOne(e.phrases)); };
+  if (ev.name === 'knock' && t >= KNOCK_MS) { ev = null; react(); }
+  else if (ev.name === 'blink' && t >= LIGHTS_MS) { ev = null; react(); }
+  else if (ev.name === 'roach') {
+    const c = critter();
+    if (!ev.reacted && c && c.x <= ROACH_SPOT) { ev.reacted = true; react(); }
+    if (t >= ROACH_MS) ev = null;
+  } else if (ev.name === 'stomp') {
+    if (state !== 'stomp' || frameAt(elapsed).frame === STOMP_LAND_FRAME || t >= 3000) squash();
+  } else if (ev.name === 'pigeon') {
+    if (!ev.reacted && t >= PIGEON_IN_MS) { ev.reacted = true; say(pickOne(e.phrases)); }
+    if (t >= PIGEON_IN_MS + PIGEON_SIT_MS + PIGEON_OUT_MS) ev = null;
+  }
+}
+
+function eventShake() {
+  if (!ev || ev.name !== 'knock' || !$('shake').checked) return [0, 0];
+  const k = ev.t;
+  if (Math.floor(k / KNOCK_EVERY_MS) >= 3 || k % KNOCK_EVERY_MS >= KNOCK_SHAKE_MS) return [0, 0];
+  return KNOCK_SHAKE[Math.floor(k % KNOCK_EVERY_MS * 4 / KNOCK_SHAKE_MS)];
+}
+
+function thud() {
+  const k = ev && ev.name === 'knock' ? ev.t : -1;
+  if (k < 0 || Math.floor(k / KNOCK_EVERY_MS) >= 3 || k % KNOCK_EVERY_MS >= THUD_MS) return null;
+  return { sprite: 'thud', frame: k % KNOCK_EVERY_MS < THUD_MS / 2 ? 0 : 1, x: THUD_X, y: THUD_Y };
+}
+
+function eventDark() {
+  const t = ev && ev.name === 'blink' ? ev.t : -1;
+  return (t >= LIGHTS_OFF1 && t < LIGHTS_ON) || (t >= LIGHTS_OFF2 && t < LIGHTS_MS);
+}
+
+function drawCritter(c) {
+  if (!c) return;
+  const img = assets[c.sprite], w = img.width / sheets[c.sprite].frames;
+  ctx.drawImage(img, c.frame * w, 0, w, img.height, c.x, c.y, w, img.height);
+}
+
+// Клик по экрану, пока бежит таракан: он замирает, Игоряша прыгает на него.
+function slap() {
+  const c = critter();
+  if (!ev || ev.name !== 'roach' || !c) return;
+  ev = { name: 'stomp', t: 0, roach: c };
+  setState('stomp');
+}
+
+// Приземлился: таракан раздавлен и полежит.
+function squash() {
+  const r = ev.roach;
+  splat = { sprite: 'splat', frame: 0, x: r.x, y: r.y + assets.roach.height - assets.splat.height, left: SPLAT_MS };
+  ev = null;
+  say(pickOne(randomEvents.roach.slap));
+  addLog('Раздавил!');
+}
 
 function addLog(text) {
   events = [text, ...events].slice(0, 6);
@@ -255,7 +358,8 @@ function applyLight(name, a, f) {
 
 function draw() {
   const a = current, f = frameAt(elapsed);
-  const [sx, sy] = shakeOffset(a, f);
+  const [ax, ay] = shakeOffset(a, f), [ex, ey] = eventShake();
+  const sx = ax || ex, sy = ay || ey;
   // Удар кулаком по стеклу — трещины растут (на шаг анимации — один удар).
   if (a.cracks && f.index !== lastStep && a.shake.frames.includes(f.frame)) cracks.hit(a.cracks.x, a.cracks.y);
   lastStep = f.index;
@@ -279,11 +383,15 @@ function draw() {
     speechAt = elapsed;
   }
   heap.drawPile();
+  drawCritter(splat);
+  drawCritter(critter());
+  drawCritter(thud());
   if (a.drop) drawDrop(a.drop, f);
   drawTile(a.sheet, f.frame, a.path ? walkOffset(a, f) : 0);
   heap.drawFx();
   const light = currentLight();
   applyLight(light, a, f);   // реплики и «z» — поверх света, чтобы читались и ночью
+  if (eventDark()) { ctx.fillStyle = 'rgba(0,0,0,.75)'; ctx.fillRect(0, 0, CELL, CELL); }
   if (a.zzz && a.zzz.frames.includes(f.frame)) drawZzz(a.zzz, elapsed);
   if ($('speech').checked && elapsed - speechAt < 2600) drawSpeech();
   ctx.restore();
@@ -329,6 +437,11 @@ function tick(now) {
     cracks.update(dt * speed, !!current.cracks);
     elapsed += dt * speed;
     if (elapsed >= current.duration) complete();
+    serviceEvent(dt * speed);
+    if (auto && !ev && (nextEventIn -= dt * speed) <= 0) {
+      nextEventIn = AUTO_EVENT_MS[0] + Math.random() * (AUTO_EVENT_MS[1] - AUTO_EVENT_MS[0]);
+      startEvent(pickOne(Object.keys(randomEvents)));
+    }
   }
   draw();
   requestAnimationFrame(tick);
@@ -348,6 +461,8 @@ function bindUI() {
     paused = false;
     setState(b.dataset.action, true);
   });
+  document.querySelectorAll('[data-event]').forEach(b => b.onclick = () => { paused = false; startEvent(b.dataset.event); });
+  canvas.onclick = slap;
   $('auto').onclick = () => { auto = !auto; updateUI(); };
   $('pause').onclick = () => { paused = !paused; updateUI(); };
   $('step').onclick = step;
@@ -387,5 +502,5 @@ Promise.all(Object.entries(sheets).map(([name, s]) => load(name, s.src)))
 window.animationLab = {
   get state() { return state; }, get current() { return current; }, get ready() { return ready; },
   get elapsed() { return elapsed; }, get piles() { return heap ? heap.count : 0; }, get heap() { return heap; },
-  setState, step, animations,
+  setState, step, animations, startEvent, slap, get event() { return ev; },
 };

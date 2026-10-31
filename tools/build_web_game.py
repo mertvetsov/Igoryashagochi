@@ -18,6 +18,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).parent))
+import build_critters as critters  # noqa: E402
 import build_igoryasha_pack as pack  # noqa: E402
 import igoryasha_ui as ui  # noqa: E402
 
@@ -60,6 +61,7 @@ def main():
         'say': say,
         'weekdays': pack.WEEKDAYS,
         'months': pack.MONTHS,
+        'critters': {n: len(f) for n, f in critters.CRITTERS.items()},
         'stats': {'title': pack.STATS_TITLE, 'labels': pack.STATS},
         'tv': dict(zip(('x', 'y', 'w', 'h', 'rows'), pack.tv_screen())),
     }
@@ -70,7 +72,7 @@ def main():
     (GAME / 'sprites').mkdir(exist_ok=True)
     for n in names:
         sheet_png(n).save(GAME / 'sprites' / f'{n}.png', optimize=True)
-    for n in ('room', 'pill_item'):
+    for n in ('room', 'pill_item', *critters.CRITTERS):
         shutil.copy(pack.SPRITES / f'{n}.png', GAME / 'sprites' / f'{n}.png')
     print(f'game/data.js, game/sprites/ ({len(names) + 2} листов)')
 

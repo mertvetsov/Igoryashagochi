@@ -24,6 +24,11 @@
     sad:     { src: 'assets/sprites/sad.png',     cols: 6, frames: 24 },
     pill:    { src: 'assets/sprites/pill.png',    cols: 4, frames: 16 },
     pill_item: { src: 'assets/sprites/pill_item.png' },   // таблетка 11×7, падает сверху
+    // живность случайных событий (tools/build_critters.py): ленты кадров
+    roach:   { src: 'assets/sprites/roach.png',  frames: 2 },
+    splat:   { src: 'assets/sprites/splat.png',  frames: 1 },
+    pigeon:  { src: 'assets/sprites/pigeon.png', frames: 3 },
+    thud:    { src: 'assets/sprites/thud.png',   frames: 2 },   // стук соседей по батарее
     dance:   { src: 'assets/sprites/dance.png',   cols: 6, frames: 24 },
     tv:      { src: 'assets/sprites/tv.png',      cols: 6, frames: 24 },
     scratch: { src: 'assets/sprites/scratch.png', cols: 4, frames: 16 },
@@ -169,6 +174,27 @@
       shake: { frames: [5, 7], ms: 140, path: SHAKE },
       cracks: { x: 86, y: 114 },   // куда приходится кулак — отсюда трескается стекло
       phrases: ['А хинкал будет?', 'Ну покормите уже.', 'Ой вей, я голодный!', 'Ну ой, где еда?'],
+    },
+    // топ по таракану: кадры «бизиков» из листа таблетки — кулаки, присел, прыжок,
+    // приземлился (13 — тут таракан и раздавлен), кулаки
+    stomp: {
+      label: 'Прыгает на таракана',
+      group: 'roach',
+      sheet: 'pill',
+      frames: seq([10, 11, 12, 13, 10], [160, 120, 220, 300, 400]),
+      shake: { frames: [13], ms: 140, path: SHAKE },
+      phrases: ['Ага!'],
+    },
+    // злой: подходит к стеклу, четыре раза колотит кулаком и отходит — кадры «голода»
+    // (как angry в прошивке: спросонья и в ответ соседям)
+    angry: {
+      label: 'Злой, колотит в стекло',
+      sheet: 'hungry',
+      frames: seq([0, 1, 2, 3, 4, 5, 6, 7, 4, 5, 6, 7, 4, 5, 6, 7, 4, 5, 6, 7, 3, 2, 1, 0],
+                  [400, 200, 200, 250, 160, 140, 160, 140, 160, 140, 160, 140, 160, 140, 160, 140, 160, 140, 160, 140,
+                   250, 200, 200, 400]),
+      shake: { frames: [5, 7], ms: 140, path: SHAKE },
+      phrases: ['Ну ты чего, ночь же!', 'Шо?! Кто?!', 'Дай поспать, ну!', 'Ой вей, ну зачем...'],
     },
     eat: {
       label: 'Ест хинкал',
@@ -348,5 +374,19 @@
     return { ...a, name, frames, duration: frames.reduce((n, f) => n + f.ms, 0) };
   }
 
-  window.IGORYASHA = { CELL: 240, sheets, animations, play, lighting, timeOfDay, commonPhrases, heapConfig };
+  // Случайные события — поверх любой анимации (js/app.js, как IgoryashaMode в прошивке).
+  // react — какая анимация после, phrases — что он говорит.
+  const randomEvents = {
+    knock:  { label: 'Соседи стучат', react: 'angry',
+              phrases: ['Да хватит долбить!', 'Соседи, ну шо такое?!', 'Я тоже так могу!', 'Ой вей, опять ремонт.'] },
+    blink:  { label: 'Мигает свет', react: 'scared',
+              phrases: ['Опять пробки?!', 'Кто свет выключил?', 'Ой вей, темно!', 'Мама, я боюсь.'] },
+    roach:  { label: 'Таракан', react: 'scared',
+              phrases: ['Таракан!!!', 'Ой вей, опять они!', 'Тапок мне, тапок!', 'Ну шо ты бегаешь?!'],
+              slap: ['Попался, гад!', 'Тапком его!', 'Минус один.', 'Вот так вот!'] },
+    pigeon: { label: 'Голубь на окне',
+              phrases: ['О, Гуля прилетела.', 'Кыш отсюда!', 'Голубь, ну шо смотришь?', 'Гули-гули…'] },
+  };
+
+  window.IGORYASHA = { CELL: 240, sheets, animations, play, lighting, timeOfDay, commonPhrases, heapConfig, randomEvents };
 })();

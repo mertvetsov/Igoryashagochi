@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
+import build_critters as critters_mod
+
 ROOT = Path(__file__).resolve().parent.parent
 SPRITES = ROOT / 'assets' / 'sprites'
 PACK = ROOT / 'pack' / 'igoryasha.bin'
@@ -134,6 +136,9 @@ def scripts():
     # пыхтит (6), выпрямился (7)
     squat = steps('squat', [1, 2, 3, 2, 1], [200, 220, 450, 220, 200])
     squat_out = steps('squat', [1, 2, 3, 4, 5, 6, 7], [200, 240, 600, 800, 1000, 1200, 700])
+    # топ по таракану (касание, пока он бежит): кадры «бизиков» из листа таблетки —
+    # кулаки (10), присел (11), прыжок (12), приземлился (13), кулаки; на 13 таракан раздавлен
+    stomp = steps('pill', [10, 11, 12, 13, 10], [160, 120, 220, 300, 400])
     # статика: один вдох, моргание и повторы — в прошивке
     idle = steps('idle', rng(6), [400, 300, 300, 400, 300, 300])
     # имя, флаги, переходы, шаги; idle обязательно первым
@@ -163,6 +168,7 @@ def scripts():
         ('scared', ENTRY, [], scared),
         ('squat', 0, [], squat),
         ('squat_out', 0, [], squat_out),
+        ('stomp', 0, [], stomp),
     ]
 
 
@@ -264,6 +270,12 @@ SAY = {
     'squat_count': ['Раз!', 'Два!', 'Три!', 'Четыре!'],
     'squat_done': ['Каждое утро по сто!', 'Это я разогрелся.', 'Шварц нервно курит.', 'Вообще-то я качок.',
                    'Завтра двести, ой вей.', 'Кубики видно? Видно!', 'Ну шо, рельеф пошёл?', 'Спорт - это жизнь. Ух.'],
+    # случайные события
+    'knock': ['Да хватит долбить!', 'Соседи, ну шо такое?!', 'Я тоже так могу!', 'Ой вей, опять ремонт.'],
+    'blink': ['Опять пробки?!', 'Кто свет выключил?', 'Ой вей, темно!', 'Мама, я боюсь.'],
+    'roach': ['Таракан!!!', 'Ой вей, опять они!', 'Тапок мне, тапок!', 'Ну шо ты бегаешь?!'],
+    'slap': ['Попался, гад!', 'Тапком его!', 'Минус один.', 'Вот так вот!'],
+    'pigeon': ['О, Гуля прилетела.', 'Кыш отсюда!', 'Голубь, ну шо смотришь?', 'Гули-гули...'],
     'scared': ['Шо это было?!', 'Ой вей! Кто здесь?', 'Ну ой... показалось.', 'Мама...'],
 }
 
@@ -297,6 +309,19 @@ STATS_CHARS = 10   # подпись слева ×2, значение справ�
 assert all(len(s) <= STATS_CHARS for s in STATS)
 
 
+def critter_c(name, frames):
+    """Лента кадров assets/sprites/<name>.png в RGB565 (0 — прозрачно, чёрного в живности нет)."""
+    a = np.asarray(Image.open(SPRITES / f'{name}.png').convert('RGBA'))
+    h, w = a.shape[0], a.shape[1] // frames
+    v = rgb565(a[..., :3]).astype(np.uint32)
+    v[(v == 0) & (a[..., 3] >= 128)] = 0x0001
+    v[a[..., 3] < 128] = 0
+    up = name.upper()
+    rows = ['  {' + ','.join(f'0x{x:04X}' for x in v[:, k * w:(k + 1) * w].ravel()) + '},' for k in range(frames)]
+    return (f'#define IGR_{up}_W {w}\n#define IGR_{up}_H {h}\n#define IGR_{up}_FRAMES {frames}\n'
+            f'static const uint16_t IGR_{up}[{frames}][{w * h}] PROGMEM = {{\n' + '\n'.join(rows) + '\n};\n')
+
+
 def c_bytes(name, data):
     return f'static const uint8_t {name}[] = {{{", ".join(str(b) for b in data)}}};\n'
 
@@ -316,6 +341,7 @@ def build_header():
     pv[pill[..., 3] < 128] = 0
     pill_words = ','.join(f'0x{v:04X}' for v in pv.ravel())
     tv = tv_screen()
+    critters = ''.join(critter_c(n, len(f)) for n, f in critters_mod.CRITTERS.items())
 
     font = ui.glcd()
     glyphs = '\n'.join('  {' + ', '.join(f'0x{c:02X}' for c in ui.glyph_columns(ch, font)) + '},' + f'  // {ch}'
@@ -359,7 +385,9 @@ def build_header():
         f'static const uint16_t IGR_PILL_ITEM[] PROGMEM = {{{pill_words}}};\n\n'
         '// Кинескоп телевизора в углу: по строке маска, бит k — столбец IGR_TV_X + k.\n'
         f'#define IGR_TV_X {tv[0]}\n#define IGR_TV_Y {tv[1]}\n#define IGR_TV_W {tv[2]}\n#define IGR_TV_H {tv[3]}\n'
-        f'static const uint32_t IGR_TV_ROWS[IGR_TV_H] = {{{", ".join(f"0x{r:04X}" for r in tv[4])}}};\n')
+        f'static const uint32_t IGR_TV_ROWS[IGR_TV_H] = {{{", ".join(f"0x{r:04X}" for r in tv[4])}}};\n\n'
+        '// Живность случайных событий (tools/build_critters.py): кадры RGB565, 0 — прозрачно.\n'
+        + critters)
     TEXT_HEADER.write_text(
         generated + '#pragma once\n#include <Arduino.h>\n\n'
         '// Своя кириллица в сетке встроенного шрифта: 5 столбцов по 8 бит, бит 0 — верх.\n'
