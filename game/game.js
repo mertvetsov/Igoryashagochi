@@ -941,7 +941,8 @@ class Mode {
   drawClock(ctx) {
     const t = wallNow(), pad = v => String(v).padStart(2, '0');
     const fill = color => (x, y, s) => { ctx.fillStyle = color; ctx.fillRect(x, y, s, s); };
-    drawText(fill(CLOCK_COLOR), `${pad(t.getHours())}:${pad(t.getMinutes())}`, 12, 205, 4);
+    const colon = t.getSeconds() % 2 === 0 ? ':' : ' ';   // двоеточие мигает с секундами, как на часах
+    drawText(fill(CLOCK_COLOR), `${pad(t.getHours())}${colon}${pad(t.getMinutes())}`, 12, 205, 4);
     const label = (text, right, y) => drawText(fill(DATE_COLOR), text, right - [...text].length * 12 + 2, y, 2);
     label(IGR.weekdays[t.getDay()], 228, 204);
     label(`${t.getDate()} ${IGR.months[t.getMonth()]}`, 228, 221);
