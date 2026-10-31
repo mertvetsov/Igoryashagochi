@@ -60,6 +60,7 @@ def main():
         'say': say,
         'weekdays': pack.WEEKDAYS,
         'months': pack.MONTHS,
+        'stats': {'title': pack.STATS_TITLE, 'labels': pack.STATS},
         'tv': dict(zip(('x', 'y', 'w', 'h', 'rows'), pack.tv_screen())),
     }
     GAME.mkdir(exist_ok=True)

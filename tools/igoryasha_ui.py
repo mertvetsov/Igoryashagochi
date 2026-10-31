@@ -195,10 +195,16 @@ def icon(name):
         for wx in (5, 9, 13, 17):
             d.point((wx, 17), fill=(150, 150, 140))
             d.point((wx, 18), fill=(150, 150, 140))
+    elif name == 'stats':
+        for x0, top, c, hi in ((3, 12, (120, 190, 90), (170, 225, 140)), (9, 4, (245, 197, 66), (255, 228, 140)),
+                               (15, 8, (226, 90, 70), (250, 150, 130))):
+            d.rectangle((x0, top, x0 + 4, 19), fill=c)                       # столбик
+            d.line((x0, top, x0, 19), fill=hi)                               # блик
+        d.rectangle((1, 20, 20, 20), fill=(236, 232, 214))                  # ось
     return _outline(img)
 
 
-MENU = ['fork', 'broom', 'pill', 'heart', 'tank']
+MENU = ['fork', 'broom', 'pill', 'heart', 'tank', 'stats']
 
 
 def dim(img):
@@ -216,7 +222,7 @@ def dim(img):
 # --- превью ------------------------------------------------------------------------------
 
 MENU_BOX = (4, 4, 236, 38)           # как плашка часов, только сверху
-SLOT = 46
+SLOT = 38
 FRAME = 32                           # рамка выделения, иконка ровно по центру
 
 

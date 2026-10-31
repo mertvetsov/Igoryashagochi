@@ -38,11 +38,16 @@ const pileMoodPerHour = p => -(2 * p + p * p);
 
 class Pet {
   constructor() {
-    this.n = { hunger: 20, toilet: 20, mood: 70, piles: 0, epoch: 0, starvingSince: 0, overfed: 0, sick: false, pilesHighSince: 0 };
+    this.n = { hunger: 20, toilet: 20, mood: 70, piles: 0, epoch: 0, starvingSince: 0, overfed: 0, sick: false, pilesHighSince: 0,
+               // досье (пункт меню «статистика»)
+               born: 0, eaten: 0, poops: 0, wins: 0, losses: 0, loves: 0, pills: 0, dances: 0, wakes: 0 };
   }
+  // сколько дней живёт, сегодня — первый
+  days() { const n = this.n; return n.born && n.epoch >= n.born ? Math.floor((n.epoch - n.born) / 86400) + 1 : 1; }
   addMood(d) { this.n.mood = clamp100(this.n.mood + d); }
   tick(epoch, asleep) {
     const n = this.n;
+    if (!n.born) n.born = epoch;
     if (!n.epoch || epoch < n.epoch) { n.epoch = epoch; return; }
     let dt = epoch - n.epoch;
     if (dt > MAX_CATCH_UP_S) dt = MAX_CATCH_UP_S;
@@ -96,6 +101,7 @@ class Pet {
   }
   fed() {
     const n = this.n;
+    n.eaten++;
     n.overfed = n.hunger < FULL ? n.overfed + 1 : 0;
     if (n.overfed >= VOMIT_AFTER) {
       n.overfed = 0; n.hunger = VOMIT_HUNGER; n.sick = true; this.addMood(VOMIT_MOOD);
@@ -108,15 +114,18 @@ class Pet {
   }
   pill() {
     const cured = this.n.sick;
+    this.n.pills++;
     this.n.sick = false; this.n.pilesHighSince = 0;
     if (cured) this.addMood(PILL_CURE_MOOD);
     return cured;
   }
   canPlay() { return !this.n.piles && !this.n.sick; }
   cleaned() { if (this.n.piles) this.addMood(10); this.n.piles = 0; }
-  pooped() { if (this.n.piles < MAX_PILES) this.n.piles++; this.n.toilet = 0; this.addMood(5); }
-  woken() { this.addMood(-15); }
+  pooped() { if (this.n.piles < MAX_PILES) this.n.piles++; this.n.poops++; this.n.toilet = 0; this.addMood(5); }
+  woken() { this.addMood(-15); this.n.wakes++; }
   played(s) {
+    const count = { tanks_win: 'wins', tanks_lose: 'losses', love: 'loves', love2: 'loves', dance: 'dances' }[s];
+    if (count) this.n[count]++;
     if (s === 'tanks_win') this.addMood(TANKS_MOOD);
     else if (s === 'tanks_lose') this.addMood(-TANKS_MOOD);
     else if (s.startsWith('love')) this.addMood(LOVE_MOOD);   // either kind
@@ -226,7 +235,7 @@ class Light {
 // IgoryashaHud — плашка шкал, меню ухода, пузырь реплики
 // ============================================================================
 const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-const Y0 = 4, Y1 = 21, TOP_Y1 = 66, MENU_ITEMS = 5;
+const Y0 = 4, Y1 = 21, TOP_Y1 = 66, MENU_ITEMS = 6;
 const PX0 = 4, PX1 = 237, PR = 5, BAR_W = 92, BAR_H = 6, BAR_Y = 9, SAT_X = 20, MOOD_X = 139;
 const FORK_X = 10, FORK_Y = 7, FACE_X = 124, FACE_Y = 6;
 const TRACK = hex('#141612'), OUTLINE = hex('#5a5a50'), FORK = hex('#e6e1cd'), FACE = hex('#f5c542'), INK = hex('#3c2814');
@@ -235,7 +244,7 @@ const FORK_ROWS = ['#.#.#', '#.#.#', '#.#.#', '#####', '.###.', '..#..', '..#..'
 const FACE_ROWS = ['...#####...', '..#.....#..', '.#.......#.', '#.........#', '#..#...#..#', '#.........#',
                    '#.........#', '#.........#', '.#.......#.', '..#.....#..', '...#####...'];
 const MOUTHS = [[[7, 3], [7, 7], [8, 4], [8, 5], [8, 6]], [[7, 4], [7, 5], [7, 6]], [[8, 3], [8, 7], [7, 4], [7, 5], [7, 6]]];
-const MX0 = 4, MY0 = 4, MX1 = 236, MY1 = 38, MENU_R = 8, SLOT = 46, SLOT_X0 = 5, MENU_CY = 21, FRAME = 32, FR = 6;
+const MX0 = 4, MY0 = 4, MX1 = 236, MY1 = 38, MENU_R = 8, SLOT = 38, SLOT_X0 = 6, MENU_CY = 21, FRAME = 32, FR = 6;
 const FRAME_FILL = hex('#3e4236'), FRAME_LINE = hex('#f5c542');
 const PAPER = hex('#eff1dc'), BUBBLE_INK = hex('#22281e'), HEAD_X = 119;
 const ICON = 22;
@@ -258,8 +267,37 @@ function barPixel(x, y, bx, fill, color) {
   return x - bx <= fill ? color : TRACK;
 }
 
+// досье: плашка под шкалами, заголовок жёлтым, строки «подпись … значение» ×2
+const SX0 = 8, SX1 = 231, STATS_Y0 = 26, STATS_Y1 = 200, STATS_R = 8, STATS_PAD = 8;
+const STATS_TITLE_Y = STATS_Y0 + 7, STATS_RULE_Y = STATS_Y0 + 25, STATS_ROW_Y = STATS_Y0 + 29, STATS_ROW_H = 18;
+const STATS_LABEL = hex('#e6e1cd'), STATS_VALUE = hex('#f5c542'), STATS_RULE = hex('#5a5a50');
+// чернила ли x, y у текста ×2 с началом в ox, oy
+function textInk(text, ox, oy, x, y) {
+  const chars = [...text];
+  if (y < oy || y >= oy + 16 || x < ox || x >= ox + chars.length * 12) return false;
+  const c = Math.floor((x - ox) / 12), cx = ((x - ox) % 12) >> 1, cy = (y - oy) >> 1;
+  const cols = IGR.glyphs[chars[c]] || IGR.glyphs['?'];
+  return cx < 5 && !!(cols[cx] >> cy & 1);
+}
+
 class Hud {
-  constructor(icons) { this.icons = icons; this.sat = -1; this.menu = false; this.bubble = null; }
+  constructor(icons) { this.icons = icons; this.sat = -1; this.menu = false; this.bubble = null; this.stats = null; }
+  // досье: значения строк IGR.stats.labels — как IgoryashaHud::showStats()
+  showStats(values) { this.stats = values; }
+  hideStats() { this.stats = null; }
+  statsPixel(x, y, under) {
+    if (!inRounded(x, y, SX0, STATS_Y0, SX1, STATS_Y1 - 1, STATS_R)) return under;
+    const title = IGR.stats.title, tl = [...title].length;
+    if (textInk(title, (240 - tl * 12 + 2) >> 1, STATS_TITLE_Y, x, y)) return STATS_VALUE;
+    if (y === STATS_RULE_Y && x >= SX0 + STATS_PAD && x <= SX1 - STATS_PAD) return STATS_RULE;
+    const row = Math.floor((y - STATS_ROW_Y) / STATS_ROW_H);
+    if (y >= STATS_ROW_Y && row < this.stats.length) {
+      const ry = STATS_ROW_Y + row * STATS_ROW_H, v = this.stats[row];
+      if (textInk(IGR.stats.labels[row], SX0 + STATS_PAD, ry, x, y)) return STATS_LABEL;
+      if (textInk(v, SX1 - STATS_PAD + 3 - v.length * 12, ry, x, y)) return STATS_VALUE;
+    }
+    return shade(under, 215);
+  }
   set(satiety, mood, sick) {
     satiety = Math.max(0, Math.min(100, satiety)); mood = Math.max(0, Math.min(100, mood));
     const key = [Math.floor(((BAR_W - 2) * satiety + 50) / 100), Math.floor(((BAR_W - 2) * mood + 50) / 100),
@@ -329,10 +367,16 @@ class Hud {
     return shade(under, 200);
   }
   apply(px) {
+    if (this.stats)
+      for (let y = STATS_Y0; y < STATS_Y1; y++)
+        for (let x = SX0; x <= SX1; x++) {
+          const o = (y * 240 + x) * 4, c = this.statsPixel(x, y, [px[o], px[o + 1], px[o + 2]]);
+          px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2];
+        }
     const rows = this.menu ? [MY0, MY1 + 1] : this.bubble ? [this.bubble.y, this.bubble.y + this.bubble.h] : [Y0, Y1];
     if (!this.menu && !this.bubble && this.sat < 0) return;
     const b = this.bubble;
-    for (let y = rows[0]; y < Math.min(rows[1], TOP_Y1); y++)
+    for (let y = rows[0]; y < Math.min(rows[1], this.stats ? STATS_Y0 : TOP_Y1); y++)
       for (let x = 0; x < 240; x++) {
         const o = (y * 240 + x) * 4, under = [px[o], px[o + 1], px[o + 2]];
         let c;
@@ -359,7 +403,7 @@ const LOVE2_DONE_FRAME = 21;   // love2: turns back to us, pleased with himself
 const DROP_X = 158, DROP_Y = 192, DROP_FALL_MS = 600, DROP_BOUNCE_MS = 220, NO_DROP = -1000;
 const PANEL_Y = 203, PANEL = [4, 203, 236, 237];
 const CLOCK_COLOR = '#f3e6c4', DATE_COLOR = '#b8b48f';
-const ITEM_FEED = 0, ITEM_CLEAN = 1, ITEM_PILL = 2, ITEM_LOVE = 3, ITEM_TANKS = 4;
+const ITEM_FEED = 0, ITEM_CLEAN = 1, ITEM_PILL = 2, ITEM_LOVE = 3, ITEM_TANKS = 4, ITEM_STATS = 5, STATS_MS = 12000;
 const AWAY_MS = 2 * 3600 * 1000, EAT_DANCE_IN = 3;
 // телик: пока сидит к нему лицом, на кинескопе картинка — сцена, фигура, развёртка, снег
 const TV_FROM = 4, TV_TO = 17, TV_MS = 90, TV_SCENE_TICKS = 8;
@@ -408,7 +452,7 @@ class Mode {
     if (s) this.say(s);
   }
   say(group) {
-    if (this.hud.menu) return;
+    if (this.hud.menu || this.hud.stats) return;
     const g = IGR.say[group];
     this.hud.say(g[random(g.length)]);
     this.sayUntil = millis() + SAY_MS;
@@ -473,7 +517,7 @@ class Mode {
   startleIfAway() {
     const away = millis() - this.touchAt >= AWAY_MS;
     this.touchAt = millis();
-    if (!away || this.script !== 0 || this.hud.menu) return false;
+    if (!away || this.script !== 0 || this.hud.menu || this.hud.stats) return false;
     this.startScript(this.find('scared'));
     return true;
   }
@@ -519,13 +563,22 @@ class Mode {
       case ITEM_PILL: this.givePill(); break;
       case ITEM_LOVE: this.playWith('love'); break;
       case ITEM_TANKS: this.playWith('tanks'); break;
+      case ITEM_STATS: this.showStats(); break;
     }
+  }
+  showStats() {
+    const n = this.pet.n;
+    this.hud.unsay();
+    this.hud.showStats([this.pet.days(), n.eaten, n.poops, `${n.wins}:${n.losses}`, n.loves, n.pills, n.dances, n.wakes]
+      .map(String));
+    this.statsAt = millis();
   }
 
   // ---- меню на кнопке ----
+  // занят — только досье, его можно смотреть всегда
   menuEnabled() {
-    if (this.script !== 0) return 0;
-    let m = 1 << ITEM_FEED | 1 << ITEM_PILL;
+    if (this.script !== 0) return 1 << ITEM_STATS;
+    let m = 1 << ITEM_FEED | 1 << ITEM_PILL | 1 << ITEM_STATS;
     if (this.pet.n.piles) m |= 1 << ITEM_CLEAN;
     if (this.pet.canPlay()) m |= 1 << ITEM_LOVE | 1 << ITEM_TANKS;
     return m;
@@ -538,6 +591,7 @@ class Mode {
   }
   menuTouch() {
     if (this.hud.menu) { this.menuAt = millis(); this.touchAt = millis(); return false; }
+    if (this.hud.stats) { this.touchAt = millis(); this.hud.hideStats(); return true; }
     if (this.startleIfAway()) return true;
     this.wakeIfAsleep();
     this.menuNext();
@@ -545,6 +599,7 @@ class Mode {
   }
   menuNext() {
     if (this.wakeIfAsleep()) return;
+    if (this.hud.stats) { this.hud.hideStats(); return; }
     const on = this.menuEnabled();
     this.hud.unsay();
     if (!this.hud.menu) {
@@ -578,6 +633,7 @@ class Mode {
         }
       }
     }
+    if (this.hud.stats && millis() - this.statsAt >= STATS_MS) this.hud.hideStats();
     if (this.hud.saying() && millis() >= this.sayUntil) this.hud.unsay();
   }
 

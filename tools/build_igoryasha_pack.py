@@ -279,6 +279,13 @@ def tv_screen():
     return int(sx), int(sy), int(w), int(h), rows
 
 
+# Досье — пункт меню «статистика»: заголовок и подписи строк (значения считает прошивка).
+STATS_TITLE = 'ДОСЬЕ ИГОРЯШИ'
+STATS = ['Живёт дней', 'Хинкалов', 'Кучек', 'Танки', 'Любовь', 'Таблеток', 'Танцев', 'Будили']
+STATS_CHARS = 10   # подпись слева ×2, значение справа до 6 знаков
+assert all(len(s) <= STATS_CHARS for s in STATS)
+
+
 def c_bytes(name, data):
     return f'static const uint8_t {name}[] = {{{", ".join(str(b) for b in data)}}};\n'
 
@@ -349,6 +356,10 @@ def build_header():
         f'static const uint8_t IGR_GLYPHS[][5] = {{\n{glyphs}\n}};\n\n'
         f'static const uint8_t IGR_WEEKDAYS[7][3] = {{{", ".join(label(w) for w in WEEKDAYS)}}};\n'
         f'static const uint8_t IGR_MONTHS[12][4] = {{{", ".join(label(m) for m in MONTHS)}}};\n\n'
+        '// Досье (пункт меню «статистика»): заголовок и подписи строк по порядку.\n'
+        f'static const uint8_t IGR_STATS_TITLE[] = {label(STATS_TITLE)};\n'
+        f'#define IGR_STATS_ROWS {len(STATS)}\n'
+        f'static const uint8_t IGR_STATS_LABELS[IGR_STATS_ROWS][{STATS_CHARS + 1}] = {{{", ".join(label(s) for s in STATS)}}};\n\n'
         f'// Иконки меню {ui.ICON}×{ui.ICON}, RGB565, 0 — прозрачно: {", ".join(ui.MENU)}.\n'
         f'#define IGR_ICON {ui.ICON}\n'
         f'static const uint16_t IGR_ICONS[{len(ui.MENU)}][{ui.ICON * ui.ICON}] PROGMEM = {{\n' + '\n'.join(icons) + '\n};\n\n'
