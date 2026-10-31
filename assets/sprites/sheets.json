@@ -135,6 +135,14 @@
     "frames": 24,
     "scale": 0.5433
   },
+  "squat": {
+    "file": "sprites/squat.png",
+    "cell": 240,
+    "cols": 4,
+    "rows": 2,
+    "frames": 8,
+    "scale": 0.3549
+  },
   "love": {
     "file": "sprites/love.png",
     "cell": 240,

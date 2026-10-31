@@ -32,6 +32,7 @@ const SICK_PILES = 4, SICK_AFTER_S = 3600;
 const HUNGER_PER_H = 100 / 6, TOILET_PER_H = 100 / 5, SLEEP_FACTOR = 0.5;
 const MOOD_HUNGRY_PER_H = -8, MOOD_SICK_PER_H = -10, MOOD_FINE_PER_H = 4;
 const PILL_CURE_MOOD = 10, LOVE_MOOD = 15, TANKS_MOOD = 10, MOOD_FINE_UP_TO = 70;
+const WORKOUT_MOOD = 5;
 const HAPPY = 70, ITCHY = 70, DANCE_MOOD = 3, TV_MOOD = 2, SCARED_MOOD = 3;
 const FED_TOILET = 15, FED_MOOD = 5, FULL = 25, VOMIT_AFTER = 3, VOMIT_HUNGER = 40, VOMIT_MOOD = -20;
 const pileMoodPerHour = p => -(2 * p + p * p);
@@ -133,6 +134,7 @@ class Pet {
     else if (s === 'dance') this.addMood(DANCE_MOOD);
     else if (s === 'tv') this.addMood(TV_MOOD);
     else if (s === 'scared') this.addMood(-SCARED_MOOD);
+    else if (s === 'squat_out') this.addMood(WORKOUT_MOOD);
   }
 }
 
@@ -400,6 +402,9 @@ const NIGHT_AWAKE_MS = 3 * 60000, PET_TICK_MS = 10000, PET_SAVE_MS = 10 * 60000;
 const PILE_STEP_MS = 80, DUST_MS = 70, DUST_FRAMES = 5, DUST_X = 42, DUST_Y = 190, DUST_COLOR = hex('#b9b3a4');
 const POOP_FRAME = 8, SAY_MS = 3500, MENU_IDLE_MS = 5000, IDLE_TALK_IN = 90, BUZZ_FRAME = 10;
 const LOVE2_DONE_FRAME = 21;   // love2: turns back to us, pleased with himself
+// зарядка: всё утро, примерно раз в полчаса — 3–4 приседа со счётом, последний
+// провальный, потом враньё про спорт (кадры листа squat)
+const SQUAT_COUNT_FRAME = 3, SQUAT_DONE_FRAME = 6, WORKOUT_FROM = 6, WORKOUT_TO = 11, WORKOUT_GAP_MS = 30 * 60000;
 const DROP_X = 158, DROP_Y = 192, DROP_FALL_MS = 600, DROP_BOUNCE_MS = 220, NO_DROP = -1000;
 const PANEL_Y = 203, PANEL = [4, 203, 236, 237];
 const CLOCK_COLOR = '#f3e6c4', DATE_COLOR = '#b8b48f';
@@ -434,7 +439,7 @@ class Mode {
     this.queued = -1; this.sayUntil = 0; this.nextSay = null; this.buzzSaid = false;
     this.menuSel = 0; this.menuOn = 0; this.menuAt = 0; this.pileStepAt = 0; this.dust = 0; this.dustAt = 0;
     this.blinking = false; this.blinkAt = 0;
-    this.lastChoice = null; this.touchAt = millis(); this.tvTick = -1; this.shake = [0, 0];
+    this.lastChoice = null; this.squatsLeft = 0; this.squatCount = 0; this.saidStep = -1; this.workoutAt = 0; this.touchAt = millis(); this.tvTick = -1; this.shake = [0, 0];
     this.loadPet();
     this.startScript(0);
     this.nextActionAt = millis() + FIRST_ACTION_MS;
@@ -445,17 +450,33 @@ class Mode {
   // ---- сценарии ----
   startScript(index) {
     this.script = index; this.step = 0; this.stepStart = millis();
-    this.blinking = false; this.buzzSaid = false;
+    this.blinking = false; this.buzzSaid = false; this.saidStep = -1;
     let s = this.nextSay !== null ? this.nextSay : SAY_FOR[this.scripts[index].name] || null;
     this.nextSay = null;
     if (s === 'walk' && random(2)) s = null;   // ходит он много; слово — через раз
     if (s) this.say(s);
   }
-  say(group) {
+  say(group) { this.sayLine(group, random(IGR.say[group].length)); }
+  // строка i группы (за концом — последняя)
+  sayLine(group, i) {
     if (this.hud.menu || this.hud.stats) return;
     const g = IGR.say[group];
-    this.hud.say(g[random(g.length)]);
+    this.hud.say(g[Math.min(i, g.length - 1)]);
     this.sayUntil = millis() + SAY_MS;
+  }
+  // утром, когда его очередь что-то делать и с прошлой зарядки прошло полчаса, — монетка
+  workoutDue() {
+    const h = wallNow().getHours(), n = this.pet.n;
+    if (h < WORKOUT_FROM || h >= WORKOUT_TO) return false;
+    if (this.workoutAt && millis() - this.workoutAt < WORKOUT_GAP_MS) return false;
+    if (n.hunger >= HUNGRY || n.sick || this.find('squat') < 0) return false;
+    return !!random(2);
+  }
+  startWorkout() {
+    this.workoutAt = millis() || 1;
+    this.squatCount = 0;
+    this.squatsLeft = random(2, 4);   // 2–3 полных, потом последний: всего 3–4
+    this.startScript(this.find('squat'));
   }
   decide() {
     if (this.shouldSleep()) { this.startScript(this.find('sleep_in')); return; }
@@ -465,6 +486,7 @@ class Mode {
       if (!this.hud.saying() && !this.hud.menu && random(IDLE_TALK_IN) === 0) this.say('idle');
       return;
     }
+    if (this.workoutDue()) { this.startWorkout(); return; }
     this.lastChoice = this.pet.choose(wallNow().getHours(), this.lastChoice);
     this.startScript(Math.max(0, this.find(this.lastChoice)));
   }
@@ -473,6 +495,7 @@ class Mode {
     this.pet.played(sc.name);
     if (this.queued >= 0) { const q = this.queued; this.queued = -1; this.startScript(q); return; }
     if (sc.next.length) { this.startScript(this.find(sc.next[random(sc.next.length)])); return; }
+    if (sc.name === 'squat') { this.startScript(this.find(--this.squatsLeft ? 'squat' : 'squat_out')); return; }
     // счастлив — пляшет: после победы через раз, после еды иногда
     if ((sc.name === 'tanks_win' && random(2)) || (sc.name === 'eat' && this.pet.n.mood >= HAPPY && !random(EAT_DANCE_IN))) {
       this.startScript(this.find('dance'));
@@ -704,6 +727,11 @@ class Mode {
     }
     if (this.name === 'pill' && !this.buzzSaid && frame === BUZZ_FRAME) { this.buzzSaid = true; this.say('buzz'); }
     if (this.name === 'love2' && !this.buzzSaid && frame === LOVE2_DONE_FRAME) { this.buzzSaid = true; this.say('love2_done'); }
+    // зарядка: считает каждый присед внизу, отдышавшись — хвастается
+    if ((this.name === 'squat' || this.name === 'squat_out') && this.saidStep !== this.step) {
+      if (frame === SQUAT_COUNT_FRAME) { this.saidStep = this.step; this.sayLine('squat_count', this.squatCount++); }
+      else if (frame === SQUAT_DONE_FRAME) { this.saidStep = this.step; this.say('squat_done'); }
+    }
     this.servicePet();
     this.serviceTop();
     const tod = timeOfHour(wallNow().getHours());
@@ -881,7 +909,8 @@ async function main() {
                   tanks: 'играет в танки', tanks_win: 'победил в танках', tanks_lose: 'проиграл в танки',
                   love: 'танцует с надувной', love2: 'любит сам себя', sleep_in: 'ложится спать', sleep_snore: 'спит', sleep_out: 'встаёт',
                   angry: 'злой спросонья', sad: 'плачет', pill: 'пьёт таблетку', poop: 'гадит',
-                  dance: 'танцует', tv: 'смотрит телик', scratch: 'чешет жопу', scared: 'испугался' };
+                  dance: 'танцует', tv: 'смотрит телик', scratch: 'чешет жопу', scared: 'испугался',
+                  squat: 'делает зарядку', squat_out: 'делает зарядку' };
   const statusText = () => {
     const n = mode.pet.n;
     if (mode.sleeping()) return 'Спит. Любая кнопка его разбудит — и он будет злой.';

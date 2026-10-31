@@ -99,6 +99,10 @@ SHEETS = {
     # Нарисован по-своему — объём и кожу равняем по статике
     "love2": ("love2.png", 6, 4, 0, {"per_row": True, "min_blob": 0.0005, "match_area": "idle",
                                      "match_skin": "idle", "skin_frame": 0}),
+    # зарядка: стоит 0, приседает 1–3, качается в приседе 4, упёрся в колени 5,
+    # пыхтит 6, стоит 7; на месте — совмещаем по ногам, объём и кожа по статике
+    "squat": ("squat.png", 4, 2, 0, {"per_row": True, "register": True, "snap_floor": True,
+                                     "match_area": "idle", "match_skin": "idle", "skin_frame": 0}),
     # кукла и её обрывки заходят в соседние колонки; эталон — стоячий кадр в конце
     "love": ("love.png", 8, 3, 23, {"min_blob": 0.0005, "per_row": True,
                                     "anchor": "pants", "row_floor": True, "match_skin": "idle", "skin_frame": 23}),
