@@ -102,6 +102,9 @@ canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated;backgro
 footer{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;min-height:7rem;padding:1rem var(--gut);background:var(--ink);color:var(--white);
   font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-top:1px solid #333}
 footer p{margin:0}
+footer .tg{display:inline-grid;place-items:center;width:2.25rem;height:2.25rem;margin-left:.75rem;vertical-align:middle;border:2px solid currentColor;color:inherit;transition:background .15s,color .15s}
+footer .tg svg{width:1.05rem;height:1.05rem;margin-left:-.1rem}
+footer .tg:hover,footer .tg:focus-visible{background:var(--paper);border-color:var(--paper);color:var(--ink);outline:none}
 footer a{justify-self:end;text-underline-offset:.2em}
 
 @media (min-width:1200px){
@@ -246,7 +249,7 @@ footer a{justify-self:end;text-underline-offset:.2em}
 </main>
 
 <footer>
-  <p>© 2026 ЗРЯ</p>
+  <p>© 2026 ЗРЯ <a class="tg" href="https://t.me/mertvetsov" rel="me noopener" target="_blank" aria-label="Telegram @mertvetsov" title="Telegram @mertvetsov"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M22 3 1.5 11.2l6.3 2.3L19 6.2 9.6 15.1l.4 6.4 3.5-4.3 4.9 3.6z"/></svg></a></p>
   <p>Игоряшагочи · проект 002</p>
   <a href="/">На главную ↑</a>
 </footer>
