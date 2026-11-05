@@ -1013,11 +1013,13 @@ async function main() {
     pad.classList.remove('down');
     if (!longDone && !taken) mode.menuPick();
   };
-  pad.addEventListener('pointerdown', press);
-  addEventListener('pointerup', release);
-  addEventListener('pointercancel', release);
-  pad.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) press(e); });
-  pad.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') release(); });
+  if (pad) {   // на сайте кнопки устройства нет — хватает кнопок ухода
+    pad.addEventListener('pointerdown', press);
+    addEventListener('pointerup', release);
+    addEventListener('pointercancel', release);
+    pad.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) press(e); });
+    pad.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') release(); });
+  }
   const serviceButton = () => {
     if (!down || taken) return;
     if (!longDone && millis() - downAt >= BTN_LONG_MS) { longDone = true; repeatAt = millis() + BTN_REPEAT_MS; mode.menuNext(); }
@@ -1050,7 +1052,7 @@ async function main() {
     careButtons.forEach((b, k) => { b.disabled = !sleeping && !(on >> k & 1); });
     status.textContent = statusText();
     const n = mode.pet.n;
-    stats.textContent = `голод ${Math.round(n.hunger)} · туалет ${Math.round(n.toilet)} · настроение ${Math.round(n.mood)}` +
+    if (stats) stats.textContent = `голод ${Math.round(n.hunger)} · туалет ${Math.round(n.toilet)} · настроение ${Math.round(n.mood)}` +
       ` · кучек ${n.piles}${n.sick ? ' · болеет' : ''} · ${DOING[mode.name] || mode.name}`;
   };
 

@@ -3,82 +3,303 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Игоряшагочи</title>
-<meta name="description" content="Тамагочи про Игоряшу: кормить, убирать, лечить, играть в танки.">
+<meta name="theme-color" content="#f2ff57">
+<title>Игоряшагочи — ЗРЯ</title>
+<meta name="description" content="Тамагочи про Игоряшу: кормить, убирать, лечить, играть в танки. Ночью не будить.">
+<meta property="og:title" content="Игоряшагочи">
+<meta property="og:description" content="Живёт в экранчике размером с кубик сахара. Ночью не будить.">
 <style>
-:root{color-scheme:dark;--bg:#171917;--panel:#222620;--line:#393f35;--ink:#eeefdf;--muted:#9ca48e;--lime:#d8f478;--gold:#f5c542}
+:root{
+  --ink:#101010;--paper:#f2ff57;--white:#f5f4ed;--red:#ff4a2f;--blue:#4f62ff;
+  --line:2px solid var(--ink);--gut:clamp(1rem,3vw,3rem);
+  font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--paper);font-synthesis:none;
+}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,sans-serif}
-main{max-width:560px;margin:auto;padding:20px 16px 40px;display:flex;flex-direction:column;align-items:center;gap:14px}
-h1{font-size:26px;letter-spacing:-.8px;margin:0;font-weight:800}
-h1 span{color:var(--lime)}
-.lead{margin:-10px 0 0;color:var(--muted);text-align:center}
-.device{width:100%;max-width:max(300px,min(520px,100svh - 250px));background:#33382f;border:1px solid #535a49;border-radius:26px;padding:16px;
-  box-shadow:0 18px 40px #0007,inset 0 1px 0 #ffffff1c}
-canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated;background:#0d0e0c;border-radius:6px;opacity:0;transition:opacity .3s}
+html{scroll-behavior:smooth}
+body{margin:0;min-width:320px;background:var(--paper)}
+a{color:inherit}
+
+/* шапка — как на главной */
+.topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:74px;padding:0 var(--gut);border-bottom:var(--line);background:var(--paper)}
+.logo{justify-self:start;font-size:1.65rem;font-weight:950;letter-spacing:-.08em;text-decoration:none}
+.logo span{color:var(--red)}
+.topbar-note{margin:0;font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.back{justify-self:end;display:inline-flex;align-items:center;gap:.6rem;padding:.65rem .95rem;border:var(--line);background:var(--white);font-size:.75rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;box-shadow:.3rem .3rem 0 var(--ink);transition:background .15s,transform .15s,box-shadow .15s}
+.back span{font-size:1rem;line-height:1}
+.back:hover,.back:focus-visible{background:var(--paper);outline:none;transform:translate(-.15rem,-.15rem);box-shadow:.45rem .45rem 0 var(--ink)}
+.back:active{transform:translate(.2rem,.2rem);box-shadow:.1rem .1rem 0 var(--ink)}
+
+.eyebrow{margin:0;font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.status-dot{display:inline-flex;align-items:center;gap:.45rem}
+.status-dot::before{content:"";width:.6rem;height:.6rem;border:1px solid var(--ink);border-radius:50%;background:var(--ink);box-shadow:0 0 0 3px rgba(16,16,16,.2)}
+
+/* первый экран: заголовок + устройство */
+.play{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);border-bottom:var(--line)}
+.play-copy{display:flex;flex-direction:column;padding:1.25rem var(--gut) 2.5rem;border-right:var(--line)}
+.play-meta{display:flex;justify-content:space-between;gap:1rem}
+.play-copy h1{margin:clamp(3rem,8vw,7rem) 0 1.5rem;font-size:clamp(4rem,9vw,9.5rem);font-weight:950;line-height:.8;letter-spacing:-.09em;text-transform:uppercase}
+.play-copy h1 em{font-style:normal;color:transparent;-webkit-text-stroke:2px var(--ink)}
+.lead{max-width:30rem;margin:0;font-size:clamp(1rem,1.5vw,1.35rem);font-weight:700;line-height:1.35}
+.now{margin-top:auto;padding-top:2.5rem}
+.now .eyebrow{margin-bottom:.6rem}
+#status{min-height:2.6em;margin:0;padding:1rem 1.1rem;border:var(--line);background:var(--white);font-weight:800;line-height:1.3;box-shadow:.35rem .35rem 0 var(--ink)}
+
+.play-device{display:flex;flex-direction:column;align-items:center;gap:1rem;padding:clamp(1.5rem,3vw,2.5rem) var(--gut);background:var(--ink)}
+.device,.care{width:100%;max-width:max(300px,min(500px,100svh - 300px))}
+.device{padding:0;background:var(--ink)}
+canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated;background:#0d0e0c;opacity:0;transition:opacity .3s}
 .ready canvas{opacity:1}
-.device-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:12px}
-.brand{font:11px ui-monospace,monospace;letter-spacing:2px;text-transform:uppercase;color:#b3baa5}
-#pad{width:58px;height:58px;border-radius:50%;border:1px solid #5d6553;background:radial-gradient(circle at 40% 35%,#4a5242,#2a2e26);
-  box-shadow:0 3px 0 #1b1e18,inset 0 1px 0 #ffffff22;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;
-  color:#b3baa5;font:10px ui-monospace,monospace;flex:none}
-#pad.down{transform:translateY(2px);box-shadow:0 1px 0 #1b1e18,inset 0 2px 6px #0008}
-#pad:focus-visible,.care button:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
-.pad-hint{font-size:12px;color:var(--muted);line-height:1.35;text-align:right}
-#status{min-height:1.5em;text-align:center;font-weight:600}
-.care{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;width:100%;max-width:max(300px,min(520px,100svh - 250px))}
-.care button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px 10px;border-radius:14px;
-  border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:13px;cursor:pointer;
-  transition:background .15s,border-color .15s,transform .1s}
-.care button:hover:not(:disabled){border-color:var(--gold);background:#2b3027}
-.care button:active:not(:disabled){transform:translateY(1px)}
-.care button:disabled{opacity:.38;cursor:default;filter:grayscale(1)}
-.care img{width:44px;height:44px;image-rendering:pixelated}
-details{width:100%;max-width:520px;color:var(--muted);font-size:13px}
-summary{cursor:pointer}
-#stats{font:12px ui-monospace,monospace;margin-top:6px}
-.rules{margin:8px 0 0;padding-left:18px}
-@media (max-width:420px){.care button{font-size:11px;padding:10px 2px 8px}.care img{width:36px;height:36px}.pad-hint{display:none}}
+.care button:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+
+.care{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;background:var(--ink)}
+.care button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 2px 10px;border:2px solid #3a3a3a;background:var(--ink);
+  color:var(--white);font:800 .7rem/1.1 Arial,sans-serif;letter-spacing:.02em;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s}
+.care button:hover:not(:disabled){border-color:var(--paper);background:#1d1d1d}
+.care button:active:not(:disabled){background:var(--paper);color:var(--ink)}
+.care button:disabled{opacity:.3;cursor:default;filter:grayscale(1)}
+.care img{width:40px;height:40px;image-rendering:pixelated}
+
+/* секции описания */
+.section{padding:clamp(4rem,9vw,8rem) var(--gut);border-bottom:var(--line)}
+.section--white{background:var(--white)}
+.section-grid{display:grid;grid-template-columns:1fr 2fr;gap:3rem}
+.section h2{margin:.9rem 0 0;font-size:clamp(2.6rem,6vw,6rem);font-weight:950;line-height:.88;letter-spacing:-.07em;text-transform:uppercase}
+.section .h2-fit{font-size:clamp(2.6rem,4.8vw,6rem)}
+.section-note{max-width:24rem;margin:1.5rem 0 0;font-weight:700;line-height:1.3}
+
+.rules{margin:0;padding:0;list-style:none;border-top:var(--line)}
+.rules li{display:grid;grid-template-columns:4rem 1fr;gap:1rem;padding:1.35rem 0;border-bottom:var(--line);font-size:clamp(1.1rem,1.8vw,1.7rem);font-weight:800;line-height:1.3}
+.rules li span{padding-top:.35em;font-size:.72rem;letter-spacing:.08em}
+.rules small{display:block;margin-top:.35rem;font-size:.95rem;font-weight:700;opacity:.7}
+
+.reel{display:grid;grid-template-columns:repeat(3,1fr);margin:clamp(3rem,6vw,5rem) calc(var(--gut) * -1) calc(clamp(4rem,9vw,8rem) * -1);border-top:var(--line)}
+.reel figure{margin:0;padding:1.25rem;border-right:var(--line);border-bottom:var(--line);transition:background .2s}
+.reel figure:nth-child(3n){border-right:0}
+.reel figure:nth-last-child(-n+3){border-bottom:0}
+.reel figure:hover{background:var(--blue);color:var(--white)}
+.shot{position:relative;border:var(--line);background:#5c5136}
+.reel img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:contain;image-rendering:pixelated}
+.shot canvas{position:absolute;top:0;left:0;width:100%;height:auto;aspect-ratio:auto;background:none;image-rendering:pixelated;opacity:0;transition:opacity .15s;pointer-events:none}
+.shot canvas.on{opacity:1}
+.reel figcaption{display:flex;justify-content:space-between;gap:1rem;margin-top:1rem;font-size:1rem;font-weight:800;line-height:1.3}
+.reel figcaption span{font-size:.72rem;letter-spacing:.08em}
+
+.buy{display:inline-flex;justify-content:space-between;align-items:center;gap:1.5rem;margin-top:1.8rem;padding:1rem 1.1rem;border:var(--line);background:var(--paper);
+  font-size:.8rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;box-shadow:.35rem .35rem 0 var(--ink);transition:background .15s,transform .15s,box-shadow .15s}
+.buy span{font-size:1.1rem;line-height:1}
+.buy:hover,.buy:focus-visible{background:var(--red);outline:none;transform:translate(-.15rem,-.15rem);box-shadow:.5rem .5rem 0 var(--ink)}
+.buy:active{transform:translate(.2rem,.2rem);box-shadow:.15rem .15rem 0 var(--ink)}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);margin:clamp(3rem,6vw,5rem) 0 0;border-top:var(--line);border-left:var(--line)}
+.facts div{padding:1.25rem;border-right:var(--line);border-bottom:var(--line);background:var(--white)}
+.facts dt{font-size:clamp(2.2rem,4vw,3.8rem);font-weight:950;line-height:.9;letter-spacing:-.07em;text-transform:uppercase}
+.facts dd{margin:.8rem 0 0;font-weight:700;line-height:1.35}
+
+
+.closing{display:grid;place-items:center;min-height:60svh;padding:3rem 1rem;background:var(--ink);color:var(--white);text-align:center;overflow:hidden}
+.closing p{margin:0;font-size:clamp(3.5rem,12vw,12rem);font-weight:950;line-height:.78;letter-spacing:-.09em;text-transform:uppercase}
+.closing span{color:var(--paper)}
+
+footer{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;min-height:7rem;padding:1rem var(--gut);background:var(--ink);color:var(--white);
+  font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border-top:1px solid #333}
+footer p{margin:0}
+footer a{justify-self:end;text-underline-offset:.2em}
+
+@media (min-width:1200px){
+  .reel{grid-template-columns:repeat(6,1fr)}
+  .reel figure,.reel figure:nth-child(3n){border-right:var(--line);border-bottom:0}
+  .reel figure:last-child{border-right:0}
+  .reel figcaption{flex-direction:column;gap:.3rem}
+}
+@media (max-width:900px){
+  .play{grid-template-columns:1fr}
+  .play-copy{border-right:0;border-bottom:var(--line);padding-bottom:2rem}
+  .play-copy{padding-bottom:1.5rem}
+  .play-copy h1{margin:1.6rem 0 1rem;font-size:clamp(3.2rem,15vw,7rem)}
+  .now{display:none}
+  .play-device{padding-top:1.5rem}
+  .section-grid{grid-template-columns:1fr;gap:2rem}
+  .reel{grid-template-columns:repeat(2,1fr)}
+  .reel figure:nth-child(3n){border-right:var(--line)}
+  .reel figure:nth-child(2n){border-right:0}
+  .reel figure:nth-last-child(-n+3){border-bottom:var(--line)}
+  .reel figure:nth-last-child(-n+2){border-bottom:0}
+  .facts{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:820px){
+  .topbar{grid-template-columns:1fr auto}
+  .topbar-note{display:none}
+  footer{grid-template-columns:1fr auto}
+  footer p:nth-child(2){display:none}
+}
+@media (max-width:480px){
+  .care{grid-template-columns:repeat(3,1fr)}
+  .care button{font-size:.72rem;padding:10px 2px 9px}
+  .lead{font-size:.95rem}
+  .care img{width:32px;height:32px}
+    .reel figure{padding:.75rem}
+  .reel figcaption{font-size:.85rem;flex-direction:column;gap:.3rem}
+  .facts{grid-template-columns:1fr}
+  .rules li{grid-template-columns:2.5rem 1fr}
+}
+/* на телефоне статус показываем под кнопками */
+.status-mobile{display:none;width:100%;max-width:max(300px,min(500px,100svh - 300px));min-height:2.6em;margin:.4rem 0 0;padding:1rem 1.1rem;border:var(--line);background:var(--paper);font-weight:800;line-height:1.3;box-shadow:.35rem .35rem 0 var(--blue)}
+@media (max-width:900px){.status-mobile{display:block}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
+<header class="topbar">
+  <a class="logo" href="/" aria-label="ЗРЯ, на главную">ЗРЯ<span>.</span></a>
+  <p class="topbar-note">Лаборатория необязательных проектов</p>
+  <a class="back" id="back" href="/#projects"><span aria-hidden="true">←</span> Назад</a>
+</header>
+
 <main>
-  <h1>Игоряша<span>гочи</span></h1>
-  <p class="lead">Покорми, убери, полечи и поиграй — как на экранчике SmallTV.</p>
-
-  <div class="device">
-    <canvas id="screen" width="240" height="240" aria-label="Экран тамагочи: Игоряша в комнате"></canvas>
-    <div class="device-bottom">
-      <span class="brand">SmallTV · Игоряша</span>
-      <span class="pad-hint">Кнопка как на устройстве:<br>тап — меню и выбор, удержание — листать</span>
-      <button id="pad" aria-label="Сенсорная кнопка устройства">●</button>
+  <section class="play" aria-labelledby="title">
+    <div class="play-copy">
+      <div class="play-meta">
+        <p class="eyebrow">002 / Тамагочи</p>
+        <p class="eyebrow status-dot">Живёт</p>
+      </div>
+      <h1 id="title">Игоряша<br><em>гочи</em></h1>
+      <p class="lead">Живёт в советской однушке на экранчике размером с кубик сахара. Просит хинкал, гадит, болеет и играет в танки. Время у него настоящее: голодает, даже когда вкладка закрыта.</p>
+      <div class="now">
+        <p class="eyebrow">Сейчас</p>
+        <p id="status" aria-live="polite">Загружается…</p>
+      </div>
     </div>
-  </div>
 
-  <p id="status" aria-live="polite">Загружается…</p>
+    <div class="play-device">
+      <div class="device">
+        <canvas id="screen" width="240" height="240" aria-label="Экран тамагочи: Игоряша в комнате"></canvas>
+      </div>
 
-  <div class="care">
-    <button data-item="0"><img alt="">Покормить</button>
-    <button data-item="1"><img alt="">Убрать</button>
-    <button data-item="2"><img alt="">Таблетка</button>
-    <button data-item="3"><img alt="">Любовь</button>
-    <button data-item="4"><img alt="">Танки</button>
-    <button data-item="5"><img alt="">Досье</button>
-  </div>
+      <div class="care">
+        <button data-item="0"><img alt="">Покормить</button>
+        <button data-item="1"><img alt="">Убрать</button>
+        <button data-item="2"><img alt="">Таблетка</button>
+        <button data-item="3"><img alt="">Любовь</button>
+        <button data-item="4"><img alt="">Танки</button>
+        <button data-item="5"><img alt="">Досье</button>
+      </div>
+      <p class="status-mobile" id="status-mobile" aria-hidden="true"></p>
+    </div>
+  </section>
 
-  <details>
-    <summary>Как он живёт</summary>
-    <ul class="rules">
-      <li>Голод и туалет копятся по настоящим часам, даже когда страница закрыта (до суток).</li>
-      <li>С 23:00 до 7:00 он спит. Разбудишь — встанет злой и будет колотить в стекло.</li>
-      <li>Покормишь сытого три раза подряд — стошнит, и он заболеет. Лечится таблеткой.</li>
-      <li>Четыре кучки и больше целый час — тоже заболеет.</li>
-      <li>Любовь и танки — только на чистом полу и когда здоров.</li>
-    </ul>
-    <div id="stats"></div>
-  </details>
+  <section class="section section--white" aria-labelledby="rules-title">
+    <div class="section-grid">
+      <div>
+        <p class="eyebrow">01 / Правила</p>
+        <h2 id="rules-title">Как он<br>живёт</h2>
+        <p class="section-note">Никаких очков и уровней. Задача одна — чтобы ему было нормально.</p>
+      </div>
+      <ol class="rules">
+        <li><span>01</span><div>Голод и туалет копятся по настоящим часам.<small>Даже когда страница закрыта. До суток — дальше он, видимо, справляется сам.</small></div></li>
+        <li><span>02</span><div>С 23:00 до 7:00 он спит.<small>Разбудишь — встанет злой и будет колотить в стекло.</small></div></li>
+        <li><span>03</span><div>Не перекармливать.<small>Три раза подряд сытого — стошнит, и он заболеет. Лечится таблеткой.</small></div></li>
+        <li><span>04</span><div>Убирать за ним.<small>Четыре кучки и больше целый час — тоже заболеет.</small></div></li>
+        <li><span>05</span><div>Любовь и танки — по настроению.<small>Только на чистом полу и когда здоров.</small></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="reel-title">
+    <div class="section-grid">
+      <div>
+        <p class="eyebrow">02 / Репертуар</p>
+        <h2 id="reel-title">Что он<br>умеет</h2>
+      </div>
+      <p class="section-note">Больше двадцати анимаций, нарисованных по пикселю. Часть он делает сам, часть — если повезёт.</p>
+    </div>
+    <div class="reel">
+      <figure data-say="squat"><div class="shot"><img src="gifs/squat.gif?v=4" alt="Игоряша приседает" loading="lazy" width="240" height="240"></div><figcaption>Приседает<span>01</span></figcaption></figure>
+      <figure data-say="walk"><div class="shot"><img src="gifs/walk.gif?v=3" alt="Игоряша нервно ходит по комнате" loading="lazy" width="240" height="240"></div><figcaption>Нервно ходит<span>02</span></figcaption></figure>
+      <figure data-say="hungry"><div class="shot"><img src="gifs/hungry.gif?v=3" alt="Игоряша просит есть и колотит кулаком в стекло" loading="lazy" width="240" height="240"></div><figcaption>Просит хинкал<span>03</span></figcaption></figure>
+      <figure data-say="eat"><div class="shot"><img src="gifs/eat.gif?v=3" alt="Игоряша ест и потирает живот" loading="lazy" width="240" height="240"></div><figcaption>Ест хинкал<span>04</span></figcaption></figure>
+      <figure data-say="tv"><div class="shot"><img src="gifs/tv.gif?v=3" alt="Игоряша сидит перед телевизором, смотрит и ржёт" loading="lazy" width="240" height="240"></div><figcaption>Смотрит телик<span>05</span></figcaption></figure>
+      <figure data-say="tanks"><div class="shot"><img src="gifs/tanks.gif?v=3" alt="Игоряша играет в танки на ноутбуке" loading="lazy" width="240" height="240"></div><figcaption>Играет в танки<span>06</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="section section--white" aria-labelledby="hw-title">
+    <div class="section-grid">
+      <div>
+        <p class="eyebrow">03 / Железо</p>
+        <h2 id="hw-title" class="h2-fit">Живёт<br>в&nbsp;железке</h2>
+      </div>
+      <div>
+        <p class="section-note" style="margin-top:0">Это веб-копия. Настоящий Игоряша живёт на крошечном Wi-Fi-экране SmallTV со своей прошивкой — стоит на столе и требует хинкал по-честному.</p>
+        <a class="buy" href="https://aliexpress.ru/item/1005005132140010.html?sku_id=12000033286296573" target="_blank" rel="noopener">Такой же SmallTV на AliExpress <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+    <dl class="facts">
+      <div><dt>240×240</dt><dd>пикселей на экране размером с кубик сахара</dd></div>
+      <div><dt>1</dt><dd>сенсорная кнопка на всё: меню, выбор, листание</dd></div>
+      <div><dt>ESP8266</dt><dd>микроконтроллер, на котором он думает</dd></div>
+      <div><dt>24/7</dt><dd>живёт по часам, ночью спит</dd></div>
+    </dl>
+  </section>
+
+  <section class="closing" aria-label="Предупреждение">
+    <p>Ночью<br><span>не будить.</span></p>
+  </section>
 </main>
-<script src="data.js"></script>
-<script src="game.js"></script>
+
+<footer>
+  <p>© 2026 ЗРЯ</p>
+  <p>Игоряшагочи · проект 002</p>
+  <a href="/">На главную ↑</a>
+</footer>
+
+<script src="data.js?v=2026-11-05"></script>
+<script src="game.js?v=2026-11-05b"></script>
+<script>
+// «Назад»: если пришли с нашего же сайта — возвращаемся туда, иначе ведём в каталог
+(() => {
+  const back = document.getElementById('back');
+  let same = false;
+  try { same = !!document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1; } catch (e) {}
+  if (same) back.addEventListener('click', e => { e.preventDefault(); history.back(); });
+})();
+// облачка над гифками: тем же пузырём и шрифтом, что в игре, реплика под действие
+(() => {
+  if (typeof IGR === 'undefined' || typeof Hud === 'undefined') return;
+  const KIND = { squat: ['squat_done'], walk: ['walk'], hungry: ['hungry'], eat: ['feed'], tv: ['tv'], tanks: ['tanks'] };
+  const INK = '#22281e', PAPER = '#eff1dc', SHOW_MS = 3500, GAP_MS = 1200;
+  const cells = [...document.querySelectorAll('.reel [data-say]')].map(f => {
+    const c = document.createElement('canvas'); f.querySelector('.shot').append(c);
+    return { c, pool: (KIND[f.dataset.say] || ['idle']).flatMap(k => IGR.say[k] || []) };
+  }).filter(x => x.pool.length);
+  if (!cells.length) return;
+  const hud = new Hud({ on: [], off: [] });
+  let lastCell = -1, lastLine = '';
+  const draw = (c, lines) => {
+    hud.say(lines);
+    const b = hud.bubble, H = b.y + b.h;
+    c.width = 240; c.height = H;
+    const g = c.getContext('2d'), img = g.createImageData(240, H), ink = [0x22, 0x28, 0x1e], paper = [0xef, 0xf1, 0xdc];
+    for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) {
+      const v = b.px[y * b.w + x]; if (!v) continue;
+      const o = ((b.y + y) * 240 + b.x + x) * 4, col = v === 1 ? ink : paper;
+      img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  };
+  const tick = () => {
+    let i; do i = Math.floor(Math.random() * cells.length); while (cells.length > 1 && i === lastCell);
+    const cell = cells[i]; let lines;
+    do lines = cell.pool[Math.floor(Math.random() * cell.pool.length)]; while (cell.pool.length > 1 && lines.join() === lastLine);
+    lastCell = i; lastLine = lines.join();
+    draw(cell.c, lines); cell.c.classList.add('on');
+    setTimeout(() => { cell.c.classList.remove('on'); setTimeout(tick, GAP_MS); }, SHOW_MS);
+  };
+  setTimeout(tick, 800);
+})();
+// дублируем статус под кнопками для узких экранов
+(() => {
+  const src = document.getElementById('status'), dst = document.getElementById('status-mobile');
+  new MutationObserver(() => { dst.textContent = src.textContent; }).observe(src, { childList: true, characterData: true, subtree: true });
+})();
+</script>
 </body>
 </html>
